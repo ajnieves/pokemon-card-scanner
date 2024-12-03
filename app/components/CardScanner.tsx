@@ -14,6 +14,8 @@ interface CollectedCard extends PokemonCard {
   quantity: number
 }
 
+type FilterType = 'name' | 'artist'
+
 export default function CardScanner() {
   const [loading, setLoading] = useState(false)
   const [cards, setCards] = useState<PokemonCard[]>([])
@@ -22,6 +24,7 @@ export default function CardScanner() {
   const [selectedCard, setSelectedCard] = useState<PokemonCard | null>(null)
   const [collectedCards, setCollectedCards] = useState<CollectedCard[]>([])
   const [showCollection, setShowCollection] = useState(true)
+  const [filterType, setFilterType] = useState<FilterType>('name')
 
   const searchCard = async () => {
     const query = searchInput.trim()
@@ -33,7 +36,7 @@ export default function CardScanner() {
     setSelectedCard(null)
 
     try {
-      const response = await fetch(`/api/pokemon?q=${encodeURIComponent(query)}`)
+      const response = await fetch(`/api/pokemon?q=${encodeURIComponent(query)}&filterType=${filterType}`)
       const data = await response.json()
 
       if (!response.ok) {
@@ -42,11 +45,6 @@ export default function CardScanner() {
 
       if (!data.data || !Array.isArray(data.data)) {
         throw new Error('Invalid response format')
-      }
-
-      // Log the first card to check the artist field
-      if (data.data.length > 0) {
-        console.log('First card:', data.data[0])
       }
 
       setCards(data.data)
@@ -70,6 +68,11 @@ export default function CardScanner() {
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchInput(e.target.value)
+    if (error) setError('')
+  }
+
+  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilterType(e.target.value as FilterType)
     if (error) setError('')
   }
 
@@ -147,14 +150,31 @@ export default function CardScanner() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {/* Search Section */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-3xl mx-auto space-y-4">
+              {/* Filter Type */}
+              <div className="flex items-center space-x-4">
+                <label htmlFor="filterType" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Search by:
+                </label>
+                <select
+                  id="filterType"
+                  value={filterType}
+                  onChange={handleFilterChange}
+                  className="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="name">Card Name</option>
+                  <option value="artist">Illustrator</option>
+                </select>
+              </div>
+
+              {/* Search Input */}
               <div className="relative">
                 <input
                   type="text"
                   value={searchInput}
                   onChange={handleSearchInputChange}
                   onKeyPress={handleKeyPress}
-                  placeholder="Search for a Pokémon card..."
+                  placeholder={filterType === 'name' ? "Search for a Pokémon card..." : "Search by illustrator name..."}
                   className="w-full px-4 py-3 pl-12 pr-16 text-gray-900 placeholder-gray-500 bg-white dark:bg-gray-800 dark:text-white border border-gray-300 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
                 />
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

@@ -3,13 +3,19 @@ import { NextResponse } from 'next/server'
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const query = searchParams.get('q')
+  const filterType = searchParams.get('filterType') || 'name'
 
   if (!query) {
     return NextResponse.json({ error: 'Query parameter is required' }, { status: 400 })
   }
 
   const apiKey = process.env.POKEMONTCG_API_KEY
-  const apiUrl = `https://api.pokemontcg.io/v2/cards?q=name:*${query}*&orderBy=number&pageSize=20`
+  // Build query based on filter type
+  const searchQuery = filterType === 'artist' 
+    ? `artist:*${query}*` 
+    : `name:*${query}*`
+  
+  const apiUrl = `https://api.pokemontcg.io/v2/cards?q=${searchQuery}&orderBy=number&pageSize=20`
 
   console.log('Searching with URL:', apiUrl)
 
@@ -26,7 +32,6 @@ export async function GET(request: Request) {
 
     const data = await response.json()
     
-    // Log the full first card data to check the artist field
     if (data.data && data.data.length > 0) {
       console.log('First Card Data:', {
         name: data.data[0].name,
