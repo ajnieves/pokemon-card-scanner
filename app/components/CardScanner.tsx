@@ -44,6 +44,11 @@ export default function CardScanner() {
         throw new Error('Invalid response format')
       }
 
+      // Log the first card to check the artist field
+      if (data.data.length > 0) {
+        console.log('First card:', data.data[0])
+      }
+
       setCards(data.data)
 
       if (data.data.length === 0) {
@@ -236,6 +241,11 @@ export default function CardScanner() {
                           <p className={`text-sm ${getCardRarityColor(card.rarity)} truncate`}>
                             {card.rarity || 'Unknown'}
                           </p>
+                          {card.artist && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                              {card.artist}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -349,6 +359,15 @@ export default function CardScanner() {
                           {selectedCard.rarity || 'Unknown'}
                         </dd>
                       </div>
+
+                      {selectedCard.artist && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Illustrator</dt>
+                          <dd className="mt-1 text-sm text-gray-900 dark:text-white">
+                            {selectedCard.artist}
+                          </dd>
+                        </div>
+                      )}
                     </dl>
 
                     <div className="mt-6">
