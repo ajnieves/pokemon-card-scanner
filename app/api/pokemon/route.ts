@@ -12,10 +12,10 @@ export async function GET(request: Request) {
   const apiKey = process.env.POKEMONTCG_API_KEY
   // Build query based on filter type
   const searchQuery = filterType === 'artist' 
-    ? `artist:*${query}*` 
+    ? `artist:"*${query}*"` 
     : `name:*${query}*`
   
-  const apiUrl = `https://api.pokemontcg.io/v2/cards?q=${searchQuery}&orderBy=number&pageSize=20`
+  const apiUrl = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(searchQuery)}&orderBy=number&pageSize=20`
 
   console.log('Searching with URL:', apiUrl)
 
