@@ -1,0 +1,35 @@
+{
+  "name": "pokemon-card-scanner",
+  "version": "1.0.0",
+  "description": "A web application for scanning and analyzing Pokemon cards",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@tcgdex/sdk": "^2.6.0-beta.3",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "autoprefixer": "latest",
+    "next": "^15.0.3",
+    "openai": "^4.74.0",
+    "postcss": "latest",
+    "react": "latest",
+    "react-camera-pro": "^1.4.0",
+    "react-dom": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest"
+  },
+  "keywords": [
+    "pokemon",
+    "card scanner",
+    "nextjs",
+    "react"
+  ],
+  "author": "",
+  "license": "MIT"
+}
