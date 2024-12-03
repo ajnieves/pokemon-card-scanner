@@ -1,13 +1,5 @@
 import { NextResponse } from 'next/server'
 
-const API_BASE_URL = 'https://api.pokemontcg.io/v2'
-const API_KEY = process.env.POKEMONTCG_API_KEY
-
-const headers = {
-  'Content-Type': 'application/json',
-  ...(API_KEY && { 'X-Api-Key': API_KEY })
-}
-
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -20,64 +12,95 @@ export async function GET(request: Request) {
       )
     }
 
-    // Check if the query is a card number (e.g., "136/198" or just "136")
-    const cardNumberMatch = query.match(/^(\d+)(\/\d+)?$/)
-    let searchQuery = ''
-    
-    if (cardNumberMatch) {
-      // If it's a full number with set (e.g., "25/102"), search exactly
-      if (cardNumberMatch[2]) {
-        searchQuery = `number:"${cardNumberMatch[0]}"`
-      } else {
-        // If it's just a number, search for cards with that number
-        searchQuery = `number:"${cardNumberMatch[1]}"`
-      }
-    } else {
-      // For name searches, make it case-insensitive and allow partial matches
-      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      searchQuery = `name:"${escapedQuery}"`
-    }
+    const API_KEY = process.env.POKEMONTCG_API_KEY
+    const API_URL = 'https://api.pokemontcg.io/v2/cards'
 
-    console.log('Searching with query:', searchQuery)
+    // Build search query
+    const searchQuery = `name:*${query}*`
+    const queryParams = new URLSearchParams({
+      q: searchQuery,
+      orderBy: 'number',
+      pageSize: '20',
+    })
 
-    const response = await fetch(
-      `${API_BASE_URL}/cards?q=${encodeURIComponent(searchQuery)}&pageSize=10&orderBy=number`,
-      { 
-        headers,
-        cache: 'no-store'
+    const searchUrl = `${API_URL}?${queryParams.toString()}`
+    console.log('Searching with URL:', searchUrl)
+
+    const response = await fetch(searchUrl, {
+      headers: {
+        'X-Api-Key': API_KEY!
       }
-    )
+    })
 
     if (!response.ok) {
-      console.error('API response error:', response.status, await response.text())
-      
+      console.error('API Error:', {
+        status: response.status,
+        statusText: response.statusText
+      })
+
       if (response.status === 401) {
         return NextResponse.json(
-          { error: 'API key is invalid or missing' },
+          { error: 'Authentication failed. Please check the API key.' },
           { status: 401 }
         )
-      } else if (response.status === 429) {
+      }
+
+      if (response.status === 429) {
         return NextResponse.json(
           { error: 'Rate limit exceeded. Please try again later.' },
           { status: 429 }
         )
       }
+
       return NextResponse.json(
-        { error: 'Failed to fetch cards from Pokemon TCG API' },
+        { error: 'Failed to fetch from Pokemon TCG API' },
         { status: response.status }
       )
     }
 
     const data = await response.json()
     
-    // Log the response data for debugging
-    console.log('API Response:', JSON.stringify(data, null, 2))
-    
-    return NextResponse.json(data)
+    // Transform and validate the response
+    if (!data.data || !Array.isArray(data.data)) {
+      throw new Error('Invalid response format from Pokemon TCG API')
+    }
+
+    // Transform the response to match our interface
+    const transformedData = {
+      data: data.data.map((card: any) => ({
+        id: card.id,
+        name: card.name,
+        number: card.number,
+        rarity: card.rarity,
+        set: {
+          name: card.set.name,
+          releaseDate: card.set.releaseDate,
+        },
+        images: {
+          small: card.images.small,
+          large: card.images.large,
+        },
+      })),
+      page: data.page || 1,
+      pageSize: data.pageSize || 20,
+      count: data.count || data.data.length,
+      totalCount: data.totalCount || data.data.length,
+    }
+
+    console.log('API Response:', {
+      totalCards: transformedData.data.length,
+      firstCard: transformedData.data[0]?.name
+    })
+
+    return NextResponse.json(transformedData)
+
   } catch (error: any) {
     console.error('Server error:', error)
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
+      { 
+        error: 'Failed to search cards',
+        details: error.message 
+      },
       { status: 500 }
     )
   }
