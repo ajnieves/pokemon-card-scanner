@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { LoadingSpinner } from './LoadingSpinner'
+import Collection from './Collection'
 import { 
   PokemonCard, 
   getCardRarityColor, 
@@ -20,6 +21,7 @@ export default function CardScanner() {
   const [searchInput, setSearchInput] = useState('')
   const [selectedCard, setSelectedCard] = useState<PokemonCard | null>(null)
   const [collectedCards, setCollectedCards] = useState<CollectedCard[]>([])
+  const [showCollection, setShowCollection] = useState(true)
 
   const searchCard = async () => {
     const query = searchInput.trim()
@@ -134,198 +136,146 @@ export default function CardScanner() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-      {/* Search Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
-        <div className="max-w-3xl mx-auto">
-          <div className="relative">
-            <input
-              type="text"
-              value={searchInput}
-              onChange={handleSearchInputChange}
-              onKeyPress={handleKeyPress}
-              placeholder="Search for a Pokémon card..."
-              className="w-full px-4 py-3 pl-12 pr-16 text-gray-900 placeholder-gray-500 bg-white dark:bg-gray-800 dark:text-white border border-gray-300 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+    <div className="flex h-[calc(100vh-4rem)]">
+      {/* Main Content */}
+      <div className={`flex-1 overflow-y-auto transition-all duration-300 ${showCollection ? 'mr-80' : ''}`}>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          {/* Search Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
+            <div className="max-w-3xl mx-auto">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={handleSearchInputChange}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Search for a Pokémon card..."
+                  className="w-full px-4 py-3 pl-12 pr-16 text-gray-900 placeholder-gray-500 bg-white dark:bg-gray-800 dark:text-white border border-gray-300 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <button
+                  onClick={searchCard}
+                  disabled={loading || !searchInput.trim()}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out flex items-center space-x-2"
+                >
+                  {loading ? (
+                    <>
+                      <LoadingSpinner />
+                      <span className="hidden sm:inline">Searching...</span>
+                    </>
+                  ) : (
+                    <span>Search</span>
+                  )}
+                </button>
+              </div>
             </div>
-            <button
-              onClick={searchCard}
-              disabled={loading || !searchInput.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out flex items-center space-x-2"
-            >
-              {loading ? (
-                <>
-                  <LoadingSpinner />
-                  <span className="hidden sm:inline">Searching...</span>
-                </>
-              ) : (
-                <span>Search</span>
-              )}
-            </button>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="p-4 bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-800 rounded-xl">
+              <p className="text-red-600 dark:text-red-400 text-center">{error}</p>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {loading && !error && (
+            <div className="flex justify-center items-center py-12">
+              <LoadingSpinner />
+              <span className="ml-3 text-gray-600 dark:text-gray-400">
+                Searching for "{searchInput.trim()}"...
+              </span>
+            </div>
+          )}
+
+          {/* Search Results */}
+          {cards.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Found {cards.length} cards
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {cards.map((card) => (
+                  <div 
+                    key={card.id}
+                    onClick={() => setSelectedCard(card)}
+                    className="group bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer overflow-hidden touch-manipulation"
+                  >
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-gray-900 dark:text-white truncate">{card.name}</h3>
+                        <button
+                          onClick={(e) => addToCollection(card, e)}
+                          className="ml-2 shrink-0 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors active:scale-95"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <div className="flex items-start space-x-4">
+                        {card.images?.small && (
+                          <div className="relative w-24 h-32 shrink-0 group-hover:scale-105 transition-transform duration-200">
+                            <img
+                              src={card.images.small}
+                              alt={card.name}
+                              className="w-full h-full object-cover rounded-lg shadow-sm"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                            #{formatCardNumber(card.number)}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{card.set.name}</p>
+                          <p className={`text-sm ${getCardRarityColor(card.rarity)} truncate`}>
+                            {card.rarity || 'Unknown'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-800 rounded-xl">
-          <p className="text-red-600 dark:text-red-400 text-center">{error}</p>
-        </div>
-      )}
+      {/* Collection Sidebar */}
+      <div 
+        className={`fixed top-16 right-0 w-80 h-[calc(100vh-4rem)] transform transition-transform duration-300 ease-in-out ${
+          showCollection ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <Collection
+          cards={collectedCards}
+          onRemove={removeFromCollection}
+          onUpdateQuantity={updateQuantity}
+          onExport={exportToCSV}
+          onCardClick={setSelectedCard}
+        />
+      </div>
 
-      {/* Loading State */}
-      {loading && !error && (
-        <div className="flex justify-center items-center py-12">
-          <LoadingSpinner />
-          <span className="ml-3 text-gray-600 dark:text-gray-400">
-            Searching for "{searchInput.trim()}"...
-          </span>
-        </div>
-      )}
-
-      {/* Search Results */}
-      {cards.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Found {cards.length} cards
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {cards.map((card) => (
-              <div 
-                key={card.id}
-                onClick={() => setSelectedCard(card)}
-                className="group bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer overflow-hidden touch-manipulation"
-              >
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-bold text-gray-900 dark:text-white truncate">{card.name}</h3>
-                    <button
-                      onClick={(e) => addToCollection(card, e)}
-                      className="ml-2 shrink-0 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors active:scale-95"
-                    >
-                      Add
-                    </button>
-                  </div>
-                  <div className="flex items-start space-x-4">
-                    {card.images?.small && (
-                      <div className="relative w-24 h-32 shrink-0 group-hover:scale-105 transition-transform duration-200">
-                        <img
-                          src={card.images.small}
-                          alt={card.name}
-                          className="w-full h-full object-cover rounded-lg shadow-sm"
-                          loading="lazy"
-                        />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                        #{formatCardNumber(card.number)}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{card.set.name}</p>
-                      <p className={`text-sm ${getCardRarityColor(card.rarity)} truncate`}>
-                        {card.rarity || 'Unknown'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Collection Section */}
-      {collectedCards.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 mt-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Your Collection ({collectedCards.length})
-            </h2>
-            <button
-              onClick={() => exportToCSV(collectedCards)}
-              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg shadow-sm hover:bg-green-700 transition-colors duration-200 active:scale-95"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Export to CSV
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {collectedCards.map((card) => (
-              <div 
-                key={card.id}
-                onClick={() => setSelectedCard(card)}
-                className="group bg-gray-50 dark:bg-gray-900 rounded-xl p-4 transition-all duration-200 hover:shadow-lg cursor-pointer"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-gray-900 dark:text-white truncate">{card.name}</h3>
-                  <button
-                    onClick={(e) => removeFromCollection(card.id, e)}
-                    className="ml-2 shrink-0 text-red-500 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 active:scale-95"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="flex items-start space-x-4">
-                  {card.images?.small && (
-                    <div className="relative w-24 h-32 shrink-0 group-hover:scale-105 transition-transform duration-200">
-                      <img
-                        src={card.images.small}
-                        alt={card.name}
-                        className="w-full h-full object-cover rounded-lg shadow-sm"
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                      #{formatCardNumber(card.number)}
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{card.set.name}</p>
-                    <p className={`text-sm ${getCardRarityColor(card.rarity)} truncate`}>
-                      {card.rarity || 'Unknown'}
-                    </p>
-                    <div className="flex items-center mt-3">
-                      <label className="text-sm text-gray-600 dark:text-gray-400 mr-2">Qty:</label>
-                      <div className="flex items-center">
-                        <button
-                          onClick={(e) => updateQuantity(card.id, card.quantity - 1, e)}
-                          className="px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-l transition-colors active:scale-95"
-                        >
-                          -
-                        </button>
-                        <input
-                          type="number"
-                          min="1"
-                          value={card.quantity}
-                          onChange={(e) => updateQuantity(card.id, parseInt(e.target.value) || 1)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-16 px-2 py-1 text-center border-t border-b border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
-                        />
-                        <button
-                          onClick={(e) => updateQuantity(card.id, card.quantity + 1, e)}
-                          className="px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-r transition-colors active:scale-95"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Toggle Collection Button */}
+      <button
+        onClick={() => setShowCollection(!showCollection)}
+        className="fixed bottom-4 right-4 z-50 p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+      >
+        <svg 
+          className={`w-6 h-6 transition-transform duration-300 ${showCollection ? 'rotate-180' : ''}`} 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
 
       {/* Card Detail Modal */}
       {selectedCard && (
