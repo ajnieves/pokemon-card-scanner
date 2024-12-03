@@ -66,7 +66,12 @@ export default function CardScanner() {
     if (error) setError('')
   }
 
-  const addToCollection = (card: PokemonCard) => {
+  const addToCollection = (card: PokemonCard, e?: React.MouseEvent<Element, MouseEvent>) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
     setCollectedCards(prev => {
       const existingCard = prev.find(c => c.id === card.id)
       if (existingCard) {
@@ -80,7 +85,12 @@ export default function CardScanner() {
     })
   }
 
-  const updateQuantity = (cardId: string, newQuantity: number) => {
+  const updateQuantity = (cardId: string, newQuantity: number, e?: React.MouseEvent<Element, MouseEvent>) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
     if (newQuantity < 1) return
     setCollectedCards(prev =>
       prev.map(card =>
@@ -91,7 +101,12 @@ export default function CardScanner() {
     )
   }
 
-  const removeFromCollection = (cardId: string) => {
+  const removeFromCollection = (cardId: string, e?: React.MouseEvent<Element, MouseEvent>) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
     setCollectedCards(prev => prev.filter(card => card.id !== cardId))
   }
 
@@ -191,10 +206,7 @@ export default function CardScanner() {
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-bold text-gray-900 dark:text-white truncate">{card.name}</h3>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        addToCollection(card)
-                      }}
+                      onClick={(e) => addToCollection(card, e)}
                       className="ml-2 shrink-0 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors active:scale-95"
                     >
                       Add
@@ -255,10 +267,7 @@ export default function CardScanner() {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-bold text-gray-900 dark:text-white truncate">{card.name}</h3>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeFromCollection(card.id)
-                    }}
+                    onClick={(e) => removeFromCollection(card.id, e)}
                     className="ml-2 shrink-0 text-red-500 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 active:scale-95"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -289,10 +298,7 @@ export default function CardScanner() {
                       <label className="text-sm text-gray-600 dark:text-gray-400 mr-2">Qty:</label>
                       <div className="flex items-center">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            updateQuantity(card.id, card.quantity - 1)
-                          }}
+                          onClick={(e) => updateQuantity(card.id, card.quantity - 1, e)}
                           className="px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-l transition-colors active:scale-95"
                         >
                           -
@@ -306,10 +312,7 @@ export default function CardScanner() {
                           className="w-16 px-2 py-1 text-center border-t border-b border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
                         />
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            updateQuantity(card.id, card.quantity + 1)
-                          }}
+                          onClick={(e) => updateQuantity(card.id, card.quantity + 1, e)}
                           className="px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-r transition-colors active:scale-95"
                         >
                           +
@@ -400,8 +403,8 @@ export default function CardScanner() {
 
                     <div className="mt-6">
                       <button
-                        onClick={() => {
-                          addToCollection(selectedCard)
+                        onClick={(e) => {
+                          addToCollection(selectedCard, e)
                           setSelectedCard(null)
                         }}
                         className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors active:scale-95"
