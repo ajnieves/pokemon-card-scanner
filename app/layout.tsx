@@ -28,7 +28,7 @@ export default function RootLayout({
                 </div>
                 <div>
                   <h1 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
-                    Pokémon Card Scanner
+                    CG Grading Submission Tool
                   </h1>
                   <p className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">
                     Search and catalog your collection
