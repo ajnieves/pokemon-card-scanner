@@ -5,6 +5,8 @@ import { LoadingSpinner } from './LoadingSpinner'
 import Collection from './Collection'
 import Filters from './Filters'
 import CardDetails from './CardDetails'
+import CardModal from './CardModal'
+import SearchControls from './SearchControls'
 import { 
   PokemonCard, 
   formatCardNumber,
@@ -16,6 +18,7 @@ interface CollectedCard extends PokemonCard {
 }
 
 type Language = 'en' | 'jpn' | 'all'
+type SearchType = 'name' | 'set' | 'artist'
 
 export default function CardScanner() {
   const [loading, setLoading] = useState(false)
@@ -27,6 +30,7 @@ export default function CardScanner() {
   const [collectedCards, setCollectedCards] = useState<CollectedCard[]>([])
   const [showCollection, setShowCollection] = useState(false)
   const [language, setLanguage] = useState<Language>('all')
+  const [searchType, setSearchType] = useState<SearchType>('name')
 
   const searchCard = async () => {
     const query = searchInput.trim()
@@ -39,7 +43,13 @@ export default function CardScanner() {
     setSelectedCard(null)
 
     try {
-      const response = await fetch(`/api/pokemon?q=${encodeURIComponent(query)}&language=${language}`)
+      const params = new URLSearchParams({
+        q: query,
+        language,
+        type: searchType
+      })
+
+      const response = await fetch(`/api/pokemon?${params}`)
       const data = await response.json()
 
       if (!response.ok) {
@@ -54,11 +64,15 @@ export default function CardScanner() {
       setFilteredCards(data.data)
 
       if (data.data.length === 0) {
-        setError(`No cards found matching "${query}". Try a different search term.`)
+        const langText = language === 'all' ? '' : 
+          language === 'en' ? ' in English cards' : ' in Japanese cards'
+        const typeText = searchType === 'name' ? 'card name' :
+          searchType === 'set' ? 'set name' : 'illustrator'
+        setError(`No cards found matching ${typeText} "${query}"${langText}. Try a different search term.`)
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Search error:', err)
-      setError(err.message || 'Failed to search cards')
+      setError('Failed to search cards. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -77,6 +91,14 @@ export default function CardScanner() {
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setLanguage(e.target.value as Language)
+    if (error) setError('')
+    if (searchInput.trim()) {
+      searchCard()
+    }
+  }
+
+  const handleSearchTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSearchType(e.target.value as SearchType)
     if (error) setError('')
   }
 
@@ -102,18 +124,12 @@ export default function CardScanner() {
       return [...prev, { ...card, quantity: 1 }]
     })
 
-    // Show the collection when adding a card
     if (!showCollection) {
       setShowCollection(true)
     }
   }
 
-  const updateQuantity = (cardId: string, newQuantity: number, e?: React.MouseEvent<Element, MouseEvent>) => {
-    if (e) {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-
+  const updateQuantity = (cardId: string, newQuantity: number) => {
     if (newQuantity < 1) return
     setCollectedCards(prev =>
       prev.map(card =>
@@ -124,12 +140,7 @@ export default function CardScanner() {
     )
   }
 
-  const removeFromCollection = (cardId: string, e?: React.MouseEvent<Element, MouseEvent>) => {
-    if (e) {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-
+  const removeFromCollection = (cardId: string) => {
     setCollectedCards(prev => prev.filter(card => card.id !== cardId))
   }
 
@@ -162,58 +173,18 @@ export default function CardScanner() {
       {/* Main Content */}
       <div className={`flex-1 overflow-y-auto transition-all duration-300 ${showCollection ? 'mr-80' : ''}`}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-          {/* Search Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
-            <div className="max-w-3xl mx-auto space-y-4">
-              {/* Language Selector */}
-              <div className="flex items-center space-x-4">
-                <label htmlFor="language" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Search in:
-                </label>
-                <select
-                  id="language"
-                  value={language}
-                  onChange={handleLanguageChange}
-                  className="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="all">All Languages</option>
-                  <option value="en">English</option>
-                  <option value="jpn">Japanese</option>
-                </select>
-              </div>
-
-              {/* Search Input */}
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchInput}
-                  onChange={handleSearchInputChange}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Search for a Pokémon card..."
-                  className="w-full px-4 py-3 pl-12 pr-16 text-gray-900 placeholder-gray-500 bg-white dark:bg-gray-800 dark:text-white border border-gray-300 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
-                />
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <button
-                  onClick={searchCard}
-                  disabled={loading || !searchInput.trim()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out flex items-center space-x-2"
-                >
-                  {loading ? (
-                    <>
-                      <LoadingSpinner />
-                      <span className="hidden sm:inline">Searching...</span>
-                    </>
-                  ) : (
-                    <span>Search</span>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
+          {/* Search Controls */}
+          <SearchControls
+            loading={loading}
+            searchInput={searchInput}
+            language={language}
+            searchType={searchType}
+            onSearch={searchCard}
+            onSearchInputChange={handleSearchInputChange}
+            onLanguageChange={handleLanguageChange}
+            onSearchTypeChange={handleSearchTypeChange}
+            onKeyPress={handleKeyPress}
+          />
 
           {/* Error Message */}
           {error && (
@@ -332,117 +303,16 @@ export default function CardScanner() {
         </svg>
       </button>
 
-      {/* Card Detail Modal */}
+      {/* Card Modal */}
       {selectedCard && (
-        <div 
-          className="fixed inset-0 z-50 overflow-y-auto"
-          aria-labelledby="modal-title"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setSelectedCard(null)}
-        >
-          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            <div 
-              className="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity" 
-              aria-hidden="true"
-            />
-
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-            <div 
-              className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="absolute top-0 right-0 pt-4 pr-4">
-                <button
-                  type="button"
-                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none"
-                  onClick={() => setSelectedCard(null)}
-                >
-                  <span className="sr-only">Close</span>
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="p-6 sm:p-8">
-                <div className="flex flex-col sm:flex-row gap-6">
-                  {/* Card Image */}
-                  <div className="flex-shrink-0">
-                    <img
-                      src={selectedCard.images.large || selectedCard.images.small}
-                      alt={selectedCard.name}
-                      className="w-full sm:w-72 h-auto rounded-lg shadow-lg"
-                    />
-                  </div>
-
-                  {/* Card Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-4">
-                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {selectedCard.name}
-                      </h3>
-                      {selectedCard.language && (
-                        <span className={`text-sm px-2 py-0.5 rounded ${
-                          selectedCard.language === 'JPN' 
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                        }`}>
-                          {selectedCard.language}
-                        </span>
-                      )}
-                    </div>
-
-                    <dl className="space-y-3">
-                      <div>
-                        <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Number</dt>
-                        <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                          #{formatCardNumber(selectedCard.number)}
-                        </dd>
-                      </div>
-
-                      <div>
-                        <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Set</dt>
-                        <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                          {selectedCard.set.name}
-                        </dd>
-                      </div>
-
-                      <div>
-                        <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Rarity</dt>
-                        <dd className="mt-1">
-                          <CardDetails card={selectedCard} compact />
-                        </dd>
-                      </div>
-
-                      {selectedCard.artist && (
-                        <div>
-                          <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Illustrator</dt>
-                          <dd className="mt-1 text-sm text-yellow-600 dark:text-yellow-400">
-                            {selectedCard.artist}
-                          </dd>
-                        </div>
-                      )}
-                    </dl>
-
-                    <div className="mt-6">
-                      <button
-                        onClick={(e) => {
-                          addToCollection(selectedCard, e)
-                          setSelectedCard(null)
-                        }}
-                        className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors active:scale-95"
-                      >
-                        Add to Collection
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <CardModal
+          card={selectedCard}
+          onClose={() => setSelectedCard(null)}
+          onAdd={(card) => {
+            addToCollection(card)
+            setSelectedCard(null)
+          }}
+        />
       )}
     </div>
   )

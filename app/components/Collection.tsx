@@ -1,6 +1,7 @@
 'use client'
 
-import { PokemonCard, formatCardNumber, getCardRarityColor } from '../utils/pokemon-tcg'
+import { PokemonCard, formatCardNumber } from '../utils/pokemon-tcg'
+import CardDetails from './CardDetails'
 
 interface CollectionProps {
   cards: (PokemonCard & { quantity: number })[]
@@ -48,19 +49,19 @@ export default function Collection({ cards, onRemove, onUpdateQuantity, onExport
                   />
                 )}
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-gray-900 dark:text-white truncate">{card.name}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                    #{formatCardNumber(card.number)}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{card.set.name}</p>
-                  <p className={`text-sm ${getCardRarityColor(card.rarity)} truncate`}>
-                    {card.rarity || 'Unknown'}
-                  </p>
-                  {card.artist && (
-                    <p className="text-sm text-yellow-600 dark:text-yellow-400 truncate">
-                      {card.artist}
-                    </p>
-                  )}
+                  <div className="flex items-center space-x-2">
+                    <h3 className="font-medium text-gray-900 dark:text-white truncate">{card.name}</h3>
+                    {card.language && (
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        card.language === 'JPN' 
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                      }`}>
+                        {card.language}
+                      </span>
+                    )}
+                  </div>
+                  <CardDetails card={card} />
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <div className="flex items-center gap-2">

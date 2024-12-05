@@ -4,7 +4,9 @@ import { validateJpnSearchResponse, convertJpnCard } from '../../utils/pokemon-t
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const query = searchParams.get('q')
-  const language = searchParams.get('language') || 'all' // 'en', 'jpn', or 'all'
+  const language = searchParams.get('language') || 'all'
+  const searchType = searchParams.get('type') || 'name'
+  const pageSize = 250 // Maximum allowed by the API
 
   if (!query) {
     return NextResponse.json({ error: 'Query parameter is required' }, { status: 400 })
@@ -16,61 +18,76 @@ export async function GET(request: Request) {
   try {
     // Search English cards if language is 'en' or 'all'
     if (language === 'en' || language === 'all') {
-      const enApiUrl = `https://api.pokemontcg.io/v2/cards?q=name:*${query}*&orderBy=number&pageSize=20`
-      console.log('Searching EN API:', enApiUrl)
+      // Build query based on search type
+      const searchQuery = searchType === 'name' ? `name:"*${query}*"` :
+                         searchType === 'set' ? `set.name:"*${query}*"` :
+                         `artist:"*${query}*"`
 
-      const enResponse = await fetch(enApiUrl, {
-        headers: {
-          'X-Api-Key': apiKey || ''
-        }
+      const cardApiUrl = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(searchQuery)}&orderBy=set.releaseDate,number&pageSize=${pageSize}`
+      console.log('Searching EN cards:', cardApiUrl)
+
+      const cardResponse = await fetch(cardApiUrl, {
+        headers: { 'X-Api-Key': apiKey || '' }
       })
 
-      if (!enResponse.ok) {
-        throw new Error(`EN API responded with status: ${enResponse.status}`)
+      if (!cardResponse.ok) {
+        throw new Error(`Failed to fetch EN cards: ${cardResponse.status}`)
       }
 
-      const enData = await enResponse.json()
-      if (enData.data) {
-        // Add language flag to English cards
-        results = enData.data.map((card: any) => ({ ...card, language: 'EN' }))
+      const cardData = await cardResponse.json()
+      if (cardData.data) {
+        results = cardData.data.map((card: any) => ({ ...card, language: 'EN' }))
       }
     }
 
     // Search Japanese cards if language is 'jpn' or 'all'
     if (language === 'jpn' || language === 'all') {
-      const jpnApiUrl = `https://www.jpn-cards.com/v2/card/name=${query}`
-      console.log('Searching JPN API:', jpnApiUrl)
+      const encodedQuery = encodeURIComponent(query)
+      const jpnApiUrl = searchType === 'name' ? `https://www.jpn-cards.com/v2/card/name=${encodedQuery}` :
+                       searchType === 'set' ? `https://www.jpn-cards.com/v2/card/set_name=${encodedQuery}` :
+                       `https://www.jpn-cards.com/v2/card/illustrator=${encodedQuery}`
+
+      console.log('Searching JPN cards:', jpnApiUrl)
 
       const jpnResponse = await fetch(jpnApiUrl)
 
       if (!jpnResponse.ok) {
-        throw new Error(`JPN API responded with status: ${jpnResponse.status}`)
+        throw new Error(`Failed to fetch JPN cards: ${jpnResponse.status}`)
       }
 
       const jpnData = await jpnResponse.json()
-      if (validateJpnSearchResponse(jpnData)) {
-        // Convert Japanese cards to match English card format
+      if (jpnData.data && Array.isArray(jpnData.data)) {
         const convertedJpnCards = jpnData.data.map(convertJpnCard)
         results = [...results, ...convertedJpnCards]
       }
     }
 
-    // Log the first card from results for debugging
-    if (results.length > 0) {
-      console.log('First Card Data:', {
+    // Sort combined results by release date
+    results.sort((a, b) => {
+      const dateA = new Date(a.set.releaseDate).getTime()
+      const dateB = new Date(b.set.releaseDate).getTime()
+      return dateB - dateA // Sort by newest first
+    })
+
+    // Log search results for debugging
+    console.log('Search results:', {
+      query,
+      searchType,
+      language,
+      resultCount: results.length,
+      firstResult: results[0] ? {
         name: results[0].name,
-        artist: results[0].artist,
         set: results[0].set.name,
-        number: results[0].number,
-        language: results[0].language
-      })
-    }
+        language: results[0].language,
+        releaseDate: results[0].set.releaseDate
+      } : null
+    })
 
     return NextResponse.json({ data: results })
-  } catch (error) {
-    console.error('API Error:', error)
+  } catch (error: any) {
+    console.error('API Error:', error.message)
     return NextResponse.json(
-      { error: 'Failed to fetch data from Pokemon TCG API' },
+      { error: error.message || 'Failed to fetch data' },
       { status: 500 }
     )
   }
