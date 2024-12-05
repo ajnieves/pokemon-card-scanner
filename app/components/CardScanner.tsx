@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { LoadingSpinner } from './LoadingSpinner'
 import Collection from './Collection'
+import Filters from './Filters'
+import CardDetails from './CardDetails'
 import { 
   PokemonCard, 
-  getCardRarityColor, 
   formatCardNumber,
   validateSearchResponse
 } from '../utils/pokemon-tcg'
@@ -14,17 +15,18 @@ interface CollectedCard extends PokemonCard {
   quantity: number
 }
 
-type FilterType = 'name' | 'artist'
+type Language = 'en' | 'jpn' | 'all'
 
 export default function CardScanner() {
   const [loading, setLoading] = useState(false)
   const [cards, setCards] = useState<PokemonCard[]>([])
+  const [filteredCards, setFilteredCards] = useState<PokemonCard[]>([])
   const [error, setError] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [selectedCard, setSelectedCard] = useState<PokemonCard | null>(null)
   const [collectedCards, setCollectedCards] = useState<CollectedCard[]>([])
-  const [showCollection, setShowCollection] = useState(true)
-  const [filterType, setFilterType] = useState<FilterType>('name')
+  const [showCollection, setShowCollection] = useState(false)
+  const [language, setLanguage] = useState<Language>('all')
 
   const searchCard = async () => {
     const query = searchInput.trim()
@@ -33,10 +35,11 @@ export default function CardScanner() {
     setLoading(true)
     setError('')
     setCards([])
+    setFilteredCards([])
     setSelectedCard(null)
 
     try {
-      const response = await fetch(`/api/pokemon?q=${encodeURIComponent(query)}&filterType=${filterType}`)
+      const response = await fetch(`/api/pokemon?q=${encodeURIComponent(query)}&language=${language}`)
       const data = await response.json()
 
       if (!response.ok) {
@@ -48,6 +51,7 @@ export default function CardScanner() {
       }
 
       setCards(data.data)
+      setFilteredCards(data.data)
 
       if (data.data.length === 0) {
         setError(`No cards found matching "${query}". Try a different search term.`)
@@ -71,10 +75,14 @@ export default function CardScanner() {
     if (error) setError('')
   }
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFilterType(e.target.value as FilterType)
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setLanguage(e.target.value as Language)
     if (error) setError('')
   }
+
+  const handleFilterChange = useCallback((filtered: PokemonCard[]) => {
+    setFilteredCards(filtered)
+  }, [])
 
   const addToCollection = (card: PokemonCard, e?: React.MouseEvent<Element, MouseEvent>) => {
     if (e) {
@@ -93,6 +101,11 @@ export default function CardScanner() {
       }
       return [...prev, { ...card, quantity: 1 }]
     })
+
+    // Show the collection when adding a card
+    if (!showCollection) {
+      setShowCollection(true)
+    }
   }
 
   const updateQuantity = (cardId: string, newQuantity: number, e?: React.MouseEvent<Element, MouseEvent>) => {
@@ -122,13 +135,14 @@ export default function CardScanner() {
 
   const exportToCSV = (cards: CollectedCard[]) => {
     const csvData = [
-      ['Qty', 'Name', 'Number', 'Set', 'Rarity'].join(','),
+      ['Qty', 'Name', 'Number', 'Set', 'Rarity', 'Language'].join(','),
       ...cards.map(card => [
         card.quantity,
         card.name,
         formatCardNumber(card.number),
         card.set.name,
-        card.rarity || 'Unknown'
+        card.rarity || 'Unknown',
+        card.language || 'EN'
       ].join(','))
     ].join('\n')
 
@@ -151,19 +165,20 @@ export default function CardScanner() {
           {/* Search Section */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
             <div className="max-w-3xl mx-auto space-y-4">
-              {/* Filter Type */}
+              {/* Language Selector */}
               <div className="flex items-center space-x-4">
-                <label htmlFor="filterType" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Search by:
+                <label htmlFor="language" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Search in:
                 </label>
                 <select
-                  id="filterType"
-                  value={filterType}
-                  onChange={handleFilterChange}
+                  id="language"
+                  value={language}
+                  onChange={handleLanguageChange}
                   className="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md dark:bg-gray-700 dark:text-white"
                 >
-                  <option value="name">Card Name</option>
-                  <option value="artist">Illustrator</option>
+                  <option value="all">All Languages</option>
+                  <option value="en">English</option>
+                  <option value="jpn">Japanese</option>
                 </select>
               </div>
 
@@ -174,7 +189,7 @@ export default function CardScanner() {
                   value={searchInput}
                   onChange={handleSearchInputChange}
                   onKeyPress={handleKeyPress}
-                  placeholder={filterType === 'name' ? "Search for a Pokémon card..." : "Search by illustrator name..."}
+                  placeholder="Search for a Pokémon card..."
                   className="w-full px-4 py-3 pl-12 pr-16 text-gray-900 placeholder-gray-500 bg-white dark:bg-gray-800 dark:text-white border border-gray-300 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
                 />
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -217,16 +232,28 @@ export default function CardScanner() {
             </div>
           )}
 
-          {/* Search Results */}
+          {/* Filters */}
           {cards.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
+              <Filters cards={cards} onFilterChange={handleFilterChange} />
+            </div>
+          )}
+
+          {/* Search Results */}
+          {filteredCards.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Found {cards.length} cards
+                  Found {filteredCards.length} cards
+                  {filteredCards.length !== cards.length && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                      (filtered from {cards.length})
+                    </span>
+                  )}
                 </h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {cards.map((card) => (
+                {filteredCards.map((card) => (
                   <div 
                     key={card.id}
                     onClick={() => setSelectedCard(card)}
@@ -234,7 +261,18 @@ export default function CardScanner() {
                   >
                     <div className="p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-900 dark:text-white truncate">{card.name}</h3>
+                        <div className="flex items-center space-x-2">
+                          <h3 className="font-bold text-gray-900 dark:text-white truncate">{card.name}</h3>
+                          {card.language && (
+                            <span className={`text-xs px-2 py-0.5 rounded ${
+                              card.language === 'JPN' 
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                            }`}>
+                              {card.language}
+                            </span>
+                          )}
+                        </div>
                         <button
                           onClick={(e) => addToCollection(card, e)}
                           className="ml-2 shrink-0 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors active:scale-95"
@@ -253,20 +291,7 @@ export default function CardScanner() {
                             />
                           </div>
                         )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                            #{formatCardNumber(card.number)}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{card.set.name}</p>
-                          <p className={`text-sm ${getCardRarityColor(card.rarity)} truncate`}>
-                            {card.rarity || 'Unknown'}
-                          </p>
-                          {card.artist && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                              {card.artist}
-                            </p>
-                          )}
-                        </div>
+                        <CardDetails card={card} />
                       </div>
                     </div>
                   </div>
@@ -354,9 +379,20 @@ export default function CardScanner() {
 
                   {/* Card Details */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                      {selectedCard.name}
-                    </h3>
+                    <div className="flex items-center space-x-2 mb-4">
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {selectedCard.name}
+                      </h3>
+                      {selectedCard.language && (
+                        <span className={`text-sm px-2 py-0.5 rounded ${
+                          selectedCard.language === 'JPN' 
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        }`}>
+                          {selectedCard.language}
+                        </span>
+                      )}
+                    </div>
 
                     <dl className="space-y-3">
                       <div>
@@ -375,15 +411,15 @@ export default function CardScanner() {
 
                       <div>
                         <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Rarity</dt>
-                        <dd className={`mt-1 text-sm ${getCardRarityColor(selectedCard.rarity)}`}>
-                          {selectedCard.rarity || 'Unknown'}
+                        <dd className="mt-1">
+                          <CardDetails card={selectedCard} compact />
                         </dd>
                       </div>
 
                       {selectedCard.artist && (
                         <div>
                           <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Illustrator</dt>
-                          <dd className="mt-1 text-sm text-gray-900 dark:text-white">
+                          <dd className="mt-1 text-sm text-yellow-600 dark:text-yellow-400">
                             {selectedCard.artist}
                           </dd>
                         </div>
