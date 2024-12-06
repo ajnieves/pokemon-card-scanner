@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const query = searchParams.get('q')
   const language = searchParams.get('language') || 'all'
   const searchType = searchParams.get('type') || 'name'
-  const pageSize = 250 // Maximum allowed by the API
+  const pageSize = 250
 
   if (!query) {
     return NextResponse.json({ error: 'Query parameter is required' }, { status: 400 })
@@ -18,48 +18,41 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'API configuration error' }, { status: 500 })
   }
 
-  console.log('Search params:', { query, language, searchType, apiKey: apiKey ? 'present' : 'missing' })
   let results: any[] = []
 
   try {
     // Search English cards if language is 'en' or 'all'
     if (language === 'en' || language === 'all') {
-      // Build query based on search type
       const searchQuery = searchType === 'name' ? `name:"*${query}*"` :
                          searchType === 'set' ? `set.name:"*${query}*"` :
                          `artist:"*${query}*"`
 
       const cardApiUrl = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(searchQuery)}&orderBy=set.releaseDate,number&pageSize=${pageSize}`
-      console.log('EN API URL:', cardApiUrl)
+      console.log('Searching EN cards:', cardApiUrl)
 
-      try {
-        const cardResponse = await fetch(cardApiUrl, {
-          headers: {
-            'X-Api-Key': apiKey,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
+      const cardResponse = await fetch(cardApiUrl, {
+        headers: {
+          'X-Api-Key': apiKey,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!cardResponse.ok) {
+        console.error('EN API Error:', cardResponse.status, cardResponse.statusText)
+        throw new Error(`Failed to fetch EN cards: ${cardResponse.status}`)
+      }
+
+      const cardData = await cardResponse.json()
+      if (cardData.data) {
+        results = cardData.data.map((card: any) => {
+          // Convert image URLs to high-res format
+          if (card.images?.small) {
+            const baseUrl = card.images.small.replace('.png', '')
+            card.images.large = `${baseUrl}_hires.png`
           }
+          return { ...card, language: 'EN' }
         })
-
-        const responseText = await cardResponse.text()
-        console.log('EN API Response:', {
-          status: cardResponse.status,
-          statusText: cardResponse.statusText,
-          headers: Object.fromEntries(cardResponse.headers),
-          body: responseText.substring(0, 1000) // Log first 1000 chars
-        })
-
-        if (!cardResponse.ok) {
-          throw new Error(`EN API error: ${cardResponse.status} - ${responseText}`)
-        }
-
-        const cardData = JSON.parse(responseText)
-        if (cardData.data) {
-          results = cardData.data.map((card: any) => ({ ...card, language: 'EN' }))
-        }
-      } catch (enError: any) {
-        console.error('EN API Error:', enError)
-        // Continue to Japanese search even if English search fails
       }
     }
 
@@ -70,30 +63,23 @@ export async function GET(request: Request) {
                        searchType === 'set' ? `https://www.jpn-cards.com/v2/card/set_name=${encodedQuery}` :
                        `https://www.jpn-cards.com/v2/card/illustrator=${encodedQuery}`
 
-      console.log('JPN API URL:', jpnApiUrl)
+      console.log('Searching JPN cards:', jpnApiUrl)
+
+      const jpnResponse = await fetch(jpnApiUrl)
+
+      if (!jpnResponse.ok) {
+        console.error('JPN API Error:', jpnResponse.status, jpnResponse.statusText)
+        throw new Error(`Failed to fetch JPN cards: ${jpnResponse.status}`)
+      }
 
       try {
-        const jpnResponse = await fetch(jpnApiUrl)
-        const responseText = await jpnResponse.text()
-        console.log('JPN API Response:', {
-          status: jpnResponse.status,
-          statusText: jpnResponse.statusText,
-          headers: Object.fromEntries(jpnResponse.headers),
-          body: responseText.substring(0, 1000) // Log first 1000 chars
-        })
-
-        if (!jpnResponse.ok) {
-          throw new Error(`JPN API error: ${jpnResponse.status} - ${responseText}`)
-        }
-
-        const jpnData = JSON.parse(responseText)
+        const jpnData = await jpnResponse.json()
         if (jpnData.data && Array.isArray(jpnData.data)) {
           const convertedJpnCards = jpnData.data.map(convertJpnCard)
           results = [...results, ...convertedJpnCards]
         }
-      } catch (jpnError: any) {
-        console.error('JPN API Error:', jpnError)
-        // Continue even if Japanese search fails
+      } catch (error) {
+        console.error('JPN API Parse Error:', error)
       }
     }
 
@@ -101,22 +87,16 @@ export async function GET(request: Request) {
     results.sort((a, b) => {
       const dateA = new Date(a.set.releaseDate).getTime()
       const dateB = new Date(b.set.releaseDate).getTime()
-      return dateB - dateA // Sort by newest first
+      return dateB - dateA
     })
 
-    // Log search results summary
-    console.log('Search results:', {
-      query,
-      searchType,
-      language,
-      resultCount: results.length,
-      firstResult: results[0] ? {
-        name: results[0].name,
-        set: results[0].set.name,
-        language: results[0].language,
-        releaseDate: results[0].set.releaseDate
-      } : null
-    })
+    // Log first result for debugging
+    if (results.length > 0) {
+      console.log('First result image URLs:', {
+        small: results[0].images?.small,
+        large: results[0].images?.large
+      })
+    }
 
     return NextResponse.json({ data: results })
   } catch (error: any) {

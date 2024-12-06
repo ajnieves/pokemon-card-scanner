@@ -7,6 +7,7 @@ import Filters from './Filters'
 import CardDetails from './CardDetails'
 import CardModal from './CardModal'
 import SearchControls from './SearchControls'
+import ImageLoader from './ImageLoader'
 import { 
   PokemonCard, 
   formatCardNumber,
@@ -253,14 +254,10 @@ export default function CardScanner() {
                       </div>
                       <div className="flex items-start space-x-4">
                         {card.images?.small && (
-                          <div className="relative w-24 h-32 shrink-0 group-hover:scale-105 transition-transform duration-200">
-                            <img
-                              src={card.images.small}
-                              alt={card.name}
-                              className="w-full h-full object-cover rounded-lg shadow-sm"
-                              loading="lazy"
-                            />
-                          </div>
+                          <ImageLoader
+                            src={card.images.small}
+                            alt={card.name}
+                          />
                         )}
                         <CardDetails card={card} />
                       </div>

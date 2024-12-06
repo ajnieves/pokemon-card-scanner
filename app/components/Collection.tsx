@@ -2,6 +2,7 @@
 
 import { PokemonCard, formatCardNumber } from '../utils/pokemon-tcg'
 import CardDetails from './CardDetails'
+import ImageLoader from './ImageLoader'
 
 interface CollectionProps {
   cards: (PokemonCard & { quantity: number })[]
@@ -42,10 +43,9 @@ export default function Collection({ cards, onRemove, onUpdateQuantity, onExport
             >
               <div className="flex gap-3">
                 {card.images?.small && (
-                  <img
+                  <ImageLoader
                     src={card.images.small}
                     alt={card.name}
-                    className="w-16 h-22 object-cover rounded shadow-sm"
                   />
                 )}
                 <div className="flex-1 min-w-0">
