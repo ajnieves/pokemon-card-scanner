@@ -54,7 +54,7 @@ export default function CardModal({ card, onClose, onAdd }: CardModalProps) {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ duration: 0.2 }}
-            className="relative w-full max-w-4xl bg-[#1a1f2e] rounded-2xl shadow-2xl overflow-hidden border border-white/10"
+            className="relative w-full max-w-5xl bg-[#1a1f2e] rounded-2xl shadow-2xl overflow-hidden border border-white/10"
             onClick={handleModalClick}
           >
             {/* Close Button */}
@@ -71,24 +71,26 @@ export default function CardModal({ card, onClose, onAdd }: CardModalProps) {
             {/* Main Content */}
             <div className="flex p-6 gap-6">
               {/* Card Image */}
-              <div className="flex-1 flex items-center justify-center max-w-[400px]">
-                {card.images?.large ? (
-                  <ImageLoader
-                    src={card.images.large}
-                    alt={card.name}
-                    className="w-full h-auto rounded-lg shadow-lg"
-                  />
-                ) : card.images?.small ? (
-                  <ImageLoader
-                    src={card.images.small}
-                    alt={card.name}
-                    className="w-full h-auto rounded-lg shadow-lg"
-                  />
-                ) : (
-                  <div className="aspect-[2.5/3.5] w-full bg-gray-800/50 flex items-center justify-center rounded-lg">
-                    <span className="text-gray-400">No image available</span>
-                  </div>
-                )}
+              <div className="flex-1 flex items-center justify-center">
+                <div className="w-[450px]">
+                  {card.images?.large ? (
+                    <ImageLoader
+                      src={card.images.large}
+                      alt={card.name}
+                      className="w-full h-auto rounded-lg shadow-lg"
+                    />
+                  ) : card.images?.small ? (
+                    <ImageLoader
+                      src={card.images.small}
+                      alt={card.name}
+                      className="w-full h-auto rounded-lg shadow-lg"
+                    />
+                  ) : (
+                    <div className="aspect-[2.5/3.5] w-full bg-gray-800/50 flex items-center justify-center rounded-lg">
+                      <span className="text-gray-400">No image available</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Details Panel */}
