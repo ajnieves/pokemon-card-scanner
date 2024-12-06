@@ -13,6 +13,12 @@ export async function GET(request: Request) {
   }
 
   const apiKey = process.env.POKEMONTCG_API_KEY
+  if (!apiKey) {
+    console.error('Pokemon TCG API key is not configured')
+    return NextResponse.json({ error: 'API configuration error' }, { status: 500 })
+  }
+
+  console.log('Search params:', { query, language, searchType, apiKey: apiKey ? 'present' : 'missing' })
   let results: any[] = []
 
   try {
@@ -24,19 +30,36 @@ export async function GET(request: Request) {
                          `artist:"*${query}*"`
 
       const cardApiUrl = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(searchQuery)}&orderBy=set.releaseDate,number&pageSize=${pageSize}`
-      console.log('Searching EN cards:', cardApiUrl)
+      console.log('EN API URL:', cardApiUrl)
 
-      const cardResponse = await fetch(cardApiUrl, {
-        headers: { 'X-Api-Key': apiKey || '' }
-      })
+      try {
+        const cardResponse = await fetch(cardApiUrl, {
+          headers: {
+            'X-Api-Key': apiKey,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        })
 
-      if (!cardResponse.ok) {
-        throw new Error(`Failed to fetch EN cards: ${cardResponse.status}`)
-      }
+        const responseText = await cardResponse.text()
+        console.log('EN API Response:', {
+          status: cardResponse.status,
+          statusText: cardResponse.statusText,
+          headers: Object.fromEntries(cardResponse.headers),
+          body: responseText.substring(0, 1000) // Log first 1000 chars
+        })
 
-      const cardData = await cardResponse.json()
-      if (cardData.data) {
-        results = cardData.data.map((card: any) => ({ ...card, language: 'EN' }))
+        if (!cardResponse.ok) {
+          throw new Error(`EN API error: ${cardResponse.status} - ${responseText}`)
+        }
+
+        const cardData = JSON.parse(responseText)
+        if (cardData.data) {
+          results = cardData.data.map((card: any) => ({ ...card, language: 'EN' }))
+        }
+      } catch (enError: any) {
+        console.error('EN API Error:', enError)
+        // Continue to Japanese search even if English search fails
       }
     }
 
@@ -47,18 +70,30 @@ export async function GET(request: Request) {
                        searchType === 'set' ? `https://www.jpn-cards.com/v2/card/set_name=${encodedQuery}` :
                        `https://www.jpn-cards.com/v2/card/illustrator=${encodedQuery}`
 
-      console.log('Searching JPN cards:', jpnApiUrl)
+      console.log('JPN API URL:', jpnApiUrl)
 
-      const jpnResponse = await fetch(jpnApiUrl)
+      try {
+        const jpnResponse = await fetch(jpnApiUrl)
+        const responseText = await jpnResponse.text()
+        console.log('JPN API Response:', {
+          status: jpnResponse.status,
+          statusText: jpnResponse.statusText,
+          headers: Object.fromEntries(jpnResponse.headers),
+          body: responseText.substring(0, 1000) // Log first 1000 chars
+        })
 
-      if (!jpnResponse.ok) {
-        throw new Error(`Failed to fetch JPN cards: ${jpnResponse.status}`)
-      }
+        if (!jpnResponse.ok) {
+          throw new Error(`JPN API error: ${jpnResponse.status} - ${responseText}`)
+        }
 
-      const jpnData = await jpnResponse.json()
-      if (jpnData.data && Array.isArray(jpnData.data)) {
-        const convertedJpnCards = jpnData.data.map(convertJpnCard)
-        results = [...results, ...convertedJpnCards]
+        const jpnData = JSON.parse(responseText)
+        if (jpnData.data && Array.isArray(jpnData.data)) {
+          const convertedJpnCards = jpnData.data.map(convertJpnCard)
+          results = [...results, ...convertedJpnCards]
+        }
+      } catch (jpnError: any) {
+        console.error('JPN API Error:', jpnError)
+        // Continue even if Japanese search fails
       }
     }
 
@@ -69,7 +104,7 @@ export async function GET(request: Request) {
       return dateB - dateA // Sort by newest first
     })
 
-    // Log search results for debugging
+    // Log search results summary
     console.log('Search results:', {
       query,
       searchType,
@@ -85,7 +120,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ data: results })
   } catch (error: any) {
-    console.error('API Error:', error.message)
+    console.error('API Error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to fetch data' },
       { status: 500 }
