@@ -2,14 +2,19 @@
 const nextConfig = {
   images: {
     domains: ['images.pokemontcg.io'],
-    unoptimized: true
   },
-  typescript: {
-    ignoreBuildErrors: true
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['localhost:3000'],
+    },
   },
-  eslint: {
-    ignoreDuringBuilds: true
-  }
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.svg$/,
+      use: ['@svgr/webpack'],
+    })
+    return config
+  },
 }
 
 module.exports = nextConfig

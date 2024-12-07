@@ -1,10 +1,8 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
-import { PokemonCard, getCardRarityColor } from '../utils/pokemon-tcg'
+import { useEffect, useRef } from 'react'
+import { PokemonCard } from '../utils/pokemon-tcg'
 import ImageLoader from './ImageLoader'
-import { motion, AnimatePresence } from 'framer-motion'
-import type { MouseEvent } from 'react'
 
 interface CardModalProps {
   card: PokemonCard
@@ -13,159 +11,183 @@ interface CardModalProps {
 }
 
 export default function CardModal({ card, onClose, onAdd }: CardModalProps) {
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') onClose()
-    else if (e.key === 'Enter') {
-      onAdd(card)
-      onClose()
-    }
-  }, [card, onClose, onAdd])
+  const modalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown)
-    document.body.style.overflow = 'hidden'
-    
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = 'unset'
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
     }
-  }, [handleKeyDown])
 
-  const handleModalClick = (e: MouseEvent) => {
-    e.stopPropagation()
-  }
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    document.addEventListener('mousedown', handleClickOutside)
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [onClose])
+
+  const marketPrice = card.tcgplayer?.prices?.normal?.market || 
+                     card.tcgplayer?.prices?.holofoil?.market || 
+                     card.tcgplayer?.prices?.reverseHolofoil?.market
+
+  const directLowPrice = card.tcgplayer?.prices?.normal?.directLow || 
+                        card.tcgplayer?.prices?.holofoil?.directLow || 
+                        card.tcgplayer?.prices?.reverseHolofoil?.directLow
 
   return (
-    <AnimatePresence>
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50"
-        onClick={onClose}
-      >
-        {/* Backdrop */}
-        <div className="absolute inset-0 bg-[#1a1f2e]/95" />
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity" />
 
-        {/* Modal Content */}
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            transition={{ duration: 0.2 }}
-            className="relative w-full max-w-5xl bg-[#1a1f2e] rounded-2xl shadow-2xl overflow-hidden border border-white/10"
-            onClick={handleModalClick}
-          >
-            {/* Close Button */}
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-300 z-10"
-            >
-              <span className="sr-only">Close</span>
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+      {/* Modal */}
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div 
+          ref={modalRef}
+          className="relative w-full max-w-2xl scale-in"
+        >
+          {/* Modal Content */}
+          <div className="card overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-700/50">
+              <div className="flex items-center space-x-2">
+                <h2 className="text-xl font-semibold text-white">{card.name}</h2>
+                {card.language && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    card.language === 'JPN' 
+                      ? 'bg-red-500/20 text-red-300'
+                      : 'bg-blue-500/20 text-blue-300'
+                  }`}>
+                    {card.language}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-white transition-colors"
+                aria-label="Close modal"
+              >
+                <svg 
+                  className="w-6 h-6" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth="2" 
+                    d="M6 18L18 6M6 6l12 12" 
+                  />
+                </svg>
+              </button>
+            </div>
 
-            {/* Main Content */}
-            <div className="flex p-6 gap-6">
-              {/* Card Image */}
-              <div className="flex-1 flex items-center justify-center">
-                <div className="w-[450px]">
+            {/* Body */}
+            <div className="p-6">
+              <div className="flex flex-col md:flex-row gap-6">
+                {/* Card Image */}
+                <div className="relative w-full md:w-1/2">
                   {card.images?.large ? (
                     <ImageLoader
                       src={card.images.large}
                       alt={card.name}
-                      className="w-full h-auto rounded-lg shadow-lg"
-                    />
-                  ) : card.images?.small ? (
-                    <ImageLoader
-                      src={card.images.small}
-                      alt={card.name}
-                      className="w-full h-auto rounded-lg shadow-lg"
+                      className="w-full rounded-lg shadow-xl hover:scale-105 transition-transform duration-300"
                     />
                   ) : (
-                    <div className="aspect-[2.5/3.5] w-full bg-gray-800/50 flex items-center justify-center rounded-lg">
+                    <div className="aspect-[2.5/3.5] bg-slate-700/50 rounded-lg flex items-center justify-center">
                       <span className="text-gray-400">No image available</span>
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* Details Panel */}
-              <div className="w-72 flex flex-col gap-4">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-2xl font-bold text-white">{card.name}</h2>
-                  {card.language && (
-                    <span className="px-2 py-0.5 text-sm bg-blue-600 text-white rounded">
-                      {card.language}
-                    </span>
-                  )}
-                </div>
-
-                <dl className="space-y-4">
+                {/* Card Details */}
+                <div className="w-full md:w-1/2 space-y-4">
+                  {/* Set Info */}
                   <div>
-                    <dt className="text-sm text-gray-400">Number</dt>
-                    <dd className="text-white">#{card.number.padStart(3, '0')}</dd>
+                    <h3 className="text-sm font-medium text-gray-400">Set</h3>
+                    <p className="text-white">{card.set.name}</p>
+                    <p className="text-sm text-gray-400">
+                      {card.number}/{card.set.printedTotal}
+                      {card.rarity && ` · ${card.rarity}`}
+                    </p>
                   </div>
 
-                  <div>
-                    <dt className="text-sm text-gray-400">Set</dt>
-                    <dd className="text-white">{card.set.name}</dd>
-                  </div>
-
-                  {card.rarity && (
-                    <div>
-                      <dt className="text-sm text-gray-400">Rarity</dt>
-                      <dd className="text-white">{card.rarity}</dd>
-                    </div>
-                  )}
-
+                  {/* Artist */}
                   {card.artist && (
                     <div>
-                      <dt className="text-sm text-gray-400">Illustrator</dt>
-                      <dd className="text-white">{card.artist}</dd>
+                      <h3 className="text-sm font-medium text-gray-400">Artist</h3>
+                      <p className="text-white">{card.artist}</p>
                     </div>
                   )}
 
+                  {/* Release Date */}
                   {card.set.releaseDate && (
                     <div>
-                      <dt className="text-sm text-gray-400">Release Date</dt>
-                      <dd className="text-white">{new Date(card.set.releaseDate).toLocaleDateString()}</dd>
+                      <h3 className="text-sm font-medium text-gray-400">Release Date</h3>
+                      <p className="text-white">
+                        {new Date(card.set.releaseDate).toLocaleDateString()}
+                      </p>
                     </div>
                   )}
-                </dl>
 
-                {/* Actions */}
-                <div className="mt-auto space-y-2">
-                  <button
-                    onClick={() => {
-                      onAdd(card)
-                      onClose()
-                    }}
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                  >
-                    Add to Collection
-                  </button>
-
-                  {/* Keyboard Shortcuts */}
-                  <div className="flex justify-center gap-4 text-xs text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">Enter</kbd>
-                      <span>to add</span>
+                  {/* Market Prices */}
+                  {card.tcgplayer?.prices && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-400">Market Prices</h3>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <div className="card p-2">
+                          <p className="text-sm text-gray-400">Market</p>
+                          <p className="text-white">${marketPrice?.toFixed(2) || 'N/A'}</p>
+                        </div>
+                        <div className="card p-2">
+                          <p className="text-sm text-gray-400">Direct Low</p>
+                          <p className="text-white">${directLowPrice?.toFixed(2) || 'N/A'}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <kbd className="px-1.5 py-0.5 bg-gray-800 rounded">Esc</kbd>
-                      <span>to close</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
-          </motion.div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-slate-700/50">
+              <button
+                onClick={onClose}
+                className="btn btn-secondary"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => onAdd(card)}
+                className="btn btn-primary"
+              >
+                <svg 
+                  className="w-5 h-5 mr-2" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth="2" 
+                    d="M12 4v16m8-8H4" 
+                  />
+                </svg>
+                Add to Collection
+              </button>
+            </div>
+          </div>
         </div>
-      </motion.div>
-    </AnimatePresence>
+      </div>
+    </div>
   )
 }

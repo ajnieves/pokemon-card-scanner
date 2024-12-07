@@ -1,92 +1,116 @@
 export interface PokemonCard {
   id: string
   name: string
-  number: string
-  rarity?: string
-  images: {
-    small: string
-    large: string
+  supertype: string
+  subtypes?: string[]
+  level?: string
+  hp?: string
+  types?: string[]
+  evolvesFrom?: string
+  evolvesTo?: string[]
+  rules?: string[]
+  ancientTrait?: {
+    name: string
+    text: string
   }
+  abilities?: Array<{
+    name: string
+    text: string
+    type: string
+  }>
+  attacks?: Array<{
+    cost: string[]
+    name: string
+    text: string
+    damage: string
+    convertedEnergyCost: number
+  }>
+  weaknesses?: Array<{
+    type: string
+    value: string
+  }>
+  resistances?: Array<{
+    type: string
+    value: string
+  }>
+  retreatCost?: string[]
+  convertedRetreatCost?: number
   set: {
     id: string
     name: string
     series: string
     printedTotal: number
     total: number
+    legalities: {
+      unlimited: string
+      standard: string
+      expanded: string
+    }
+    ptcgoCode?: string
     releaseDate: string
     updatedAt: string
-  }
-  artist?: string
-  language?: 'EN' | 'JPN'
-}
-
-export interface JpnPokemonCard {
-  id: number
-  name: string
-  printedNumber: string
-  rarity?: string
-  imageUrl: string
-  setData: {
-    name: string
-    printedTotal: string
-    total: number
-    year: string
-    image_url: string
-    set_url: string
-  }
-  artist?: string
-}
-
-export function convertJpnCard(card: JpnPokemonCard): PokemonCard {
-  return {
-    id: card.id.toString(),
-    name: card.name,
-    number: card.printedNumber,
-    rarity: card.rarity,
     images: {
-      small: card.imageUrl,
-      large: card.imageUrl
-    },
-    set: {
-      id: '0',
-      name: card.setData.name,
-      series: '',
-      printedTotal: parseInt(card.setData.printedTotal),
-      total: card.setData.total,
-      releaseDate: card.setData.year,
-      updatedAt: ''
-    },
-    artist: card.artist,
-    language: 'JPN'
+      symbol: string
+      logo: string
+    }
   }
-}
-
-export function getCardRarityColor(rarity?: string): string {
-  switch (rarity?.toLowerCase()) {
-    case 'common':
-      return 'text-gray-600 dark:text-gray-400'
-    case 'uncommon':
-      return 'text-green-600 dark:text-green-400'
-    case 'rare':
-      return 'text-blue-600 dark:text-blue-400'
-    case 'rare holo':
-    case 'rare holo lv.x':
-      return 'text-indigo-600 dark:text-indigo-400'
-    case 'rare ultra':
-    case 'ultra rare':
-      return 'text-purple-600 dark:text-purple-400'
-    case 'rare secret':
-      return 'text-yellow-600 dark:text-yellow-400'
-    case 'rare rainbow':
-      return 'text-pink-600 dark:text-pink-400'
-    case 'prism rare':
-      return 'text-orange-600 dark:text-orange-400'
-    case 'shiny':
-    case 'shiny super rare':
-      return 'text-teal-600 dark:text-teal-400'
-    default:
-      return 'text-gray-600 dark:text-gray-400'
+  number: string
+  artist?: string
+  rarity: string
+  flavorText?: string
+  nationalPokedexNumbers?: number[]
+  legalities: {
+    unlimited: string
+    standard: string
+    expanded: string
   }
+  regulationMark?: string
+  images: {
+    small: string
+    large: string
+  }
+  tcgplayer?: {
+    url: string
+    updatedAt: string
+    prices: {
+      normal?: {
+        low: number
+        mid: number
+        high: number
+        market: number
+        directLow: number
+      }
+      holofoil?: {
+        low: number
+        mid: number
+        high: number
+        market: number
+        directLow: number
+      }
+      reverseHolofoil?: {
+        low: number
+        mid: number
+        high: number
+        market: number
+        directLow: number
+      }
+      '1stEditionHolofoil'?: {
+        low: number
+        mid: number
+        high: number
+        market: number
+        directLow: number
+      }
+      '1stEditionNormal'?: {
+        low: number
+        mid: number
+        high: number
+        market: number
+        directLow: number
+      }
+    }
+  }
+  language?: string
 }
 
 export function formatCardNumber(number: string): string {
@@ -98,31 +122,55 @@ export function validateSearchResponse(data: any): data is { data: PokemonCard[]
     data &&
     Array.isArray(data.data) &&
     data.data.every((card: any) =>
-      card &&
+      typeof card === 'object' &&
       typeof card.id === 'string' &&
       typeof card.name === 'string' &&
+      typeof card.supertype === 'string' &&
       typeof card.number === 'string' &&
-      card.images &&
+      typeof card.rarity === 'string' &&
+      typeof card.set === 'object' &&
+      typeof card.set.name === 'string' &&
+      typeof card.images === 'object' &&
       typeof card.images.small === 'string' &&
-      typeof card.images.large === 'string' &&
-      card.set &&
-      typeof card.set.name === 'string'
+      typeof card.images.large === 'string'
     )
   )
 }
 
-export function validateJpnSearchResponse(data: any): data is { data: JpnPokemonCard[] } {
-  return (
-    data &&
-    Array.isArray(data.data) &&
-    data.data.every((card: any) =>
-      card &&
-      typeof card.id === 'number' &&
-      typeof card.name === 'string' &&
-      typeof card.printedNumber === 'string' &&
-      typeof card.imageUrl === 'string' &&
-      card.setData &&
-      typeof card.setData.name === 'string'
-    )
-  )
+export function convertJpnCard(card: any): PokemonCard {
+  return {
+    id: `jpn-${card.id}`,
+    name: card.name,
+    supertype: card.supertype || 'Pokémon',
+    number: card.cardNumber || '0',
+    rarity: card.rarity || 'Unknown',
+    set: {
+      id: card.setId || 'unknown',
+      name: card.setName || 'Japanese Set',
+      series: 'Japanese Series',
+      printedTotal: 0,
+      total: 0,
+      legalities: {
+        unlimited: 'Legal',
+        standard: 'Legal',
+        expanded: 'Legal'
+      },
+      releaseDate: card.releaseDate || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      images: {
+        symbol: '',
+        logo: ''
+      }
+    },
+    images: {
+      small: card.image || '',
+      large: card.image || ''
+    },
+    legalities: {
+      unlimited: 'Legal',
+      standard: 'Legal',
+      expanded: 'Legal'
+    },
+    language: 'JPN'
+  }
 }

@@ -10,6 +10,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@tailwindcss/aspect-ratio": "^0.4.2",
+    "@tailwindcss/forms": "^0.5.9",
+    "@tailwindcss/typography": "^0.5.15",
     "@tcgdex/sdk": "^2.6.0-beta.3",
     "@types/node": "latest",
     "@types/react": "latest",
@@ -32,5 +35,8 @@
     "react"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@svgr/webpack": "^8.1.0"
+  }
 }

@@ -1,222 +1,162 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { PokemonCard } from '../utils/pokemon-tcg'
 
 interface FiltersProps {
   cards: PokemonCard[]
-  onFilterChange: (filteredCards: PokemonCard[]) => void
-}
-
-interface FilterState {
-  artists: string[]
-  sets: string[]
-  rarities: string[]
-}
-
-interface FilterOptions {
-  artists: string[]
-  sets: string[]
-  rarities: string[]
+  onFilterChange: (filtered: PokemonCard[]) => void
 }
 
 export default function Filters({ cards, onFilterChange }: FiltersProps) {
-  const [selectedFilters, setSelectedFilters] = useState<FilterState>({
-    artists: [],
-    sets: [],
-    rarities: []
-  })
+  const [selectedSets, setSelectedSets] = useState<Set<string>>(new Set())
+  const [selectedRarities, setSelectedRarities] = useState<Set<string>>(new Set())
+  const [selectedArtists, setSelectedArtists] = useState<Set<string>>(new Set())
 
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-    artists: [],
-    sets: [],
-    rarities: []
-  })
+  // Extract unique values and filter out undefined values
+  const uniqueSets = new Set(cards.map(card => card.set.name))
+  const uniqueRarities = new Set(cards.map(card => card.rarity).filter((rarity): rarity is string => rarity !== undefined))
+  const uniqueArtists = new Set(cards.map(card => card.artist).filter((artist): artist is string => artist !== undefined))
 
-  // Extract unique filter options from cards and sort them
   useEffect(() => {
-    if (!cards.length) return
+    let filtered = [...cards]
 
-    const options: FilterOptions = {
-      artists: Array.from(new Set(cards.filter(card => card.artist).map(card => card.artist!))).sort(),
-      sets: Array.from(new Set(cards.map(card => card.set.name))).sort(),
-      rarities: Array.from(new Set(cards.filter(card => card.rarity).map(card => card.rarity!))).sort()
+    if (selectedSets.size > 0) {
+      filtered = filtered.filter(card => selectedSets.has(card.set.name))
     }
 
-    setFilterOptions(options)
-  }, [cards])
-
-  // Memoize the filter function
-  const applyFilters = useCallback((filters: FilterState, cardsToFilter: PokemonCard[]) => {
-    let result = [...cardsToFilter]
-
-    // Apply artist filters
-    if (filters.artists.length > 0) {
-      result = result.filter(card => 
-        card.artist && filters.artists.includes(card.artist)
-      )
+    if (selectedRarities.size > 0) {
+      filtered = filtered.filter(card => card.rarity && selectedRarities.has(card.rarity))
     }
 
-    // Apply set filters
-    if (filters.sets.length > 0) {
-      result = result.filter(card => 
-        filters.sets.includes(card.set.name)
-      )
+    if (selectedArtists.size > 0) {
+      filtered = filtered.filter(card => card.artist && selectedArtists.has(card.artist))
     }
 
-    // Apply rarity filters
-    if (filters.rarities.length > 0) {
-      result = result.filter(card => 
-        card.rarity && filters.rarities.includes(card.rarity)
-      )
-    }
+    onFilterChange(filtered)
+  }, [selectedSets, selectedRarities, selectedArtists, cards, onFilterChange])
 
-    return result
-  }, [])
-
-  // Apply filters when selection changes
-  useEffect(() => {
-    const filteredCards = applyFilters(selectedFilters, cards)
-    onFilterChange(filteredCards)
-  }, [selectedFilters, cards, applyFilters, onFilterChange])
-
-  const toggleFilter = (type: keyof FilterState, value: string) => {
-    setSelectedFilters(prev => {
-      const current = prev[type]
-      const updated = current.includes(value)
-        ? current.filter(v => v !== value)
-        : [...current, value].sort()
-
-      return {
-        ...prev,
-        [type]: updated
+  const toggleSet = (set: string) => {
+    setSelectedSets(prev => {
+      const next = new Set(prev)
+      if (next.has(set)) {
+        next.delete(set)
+      } else {
+        next.add(set)
       }
+      return next
+    })
+  }
+
+  const toggleRarity = (rarity: string) => {
+    setSelectedRarities(prev => {
+      const next = new Set(prev)
+      if (next.has(rarity)) {
+        next.delete(rarity)
+      } else {
+        next.add(rarity)
+      }
+      return next
+    })
+  }
+
+  const toggleArtist = (artist: string) => {
+    setSelectedArtists(prev => {
+      const next = new Set(prev)
+      if (next.has(artist)) {
+        next.delete(artist)
+      } else {
+        next.add(artist)
+      }
+      return next
     })
   }
 
   const clearFilters = () => {
-    setSelectedFilters({
-      artists: [],
-      sets: [],
-      rarities: []
-    })
+    setSelectedSets(new Set())
+    setSelectedRarities(new Set())
+    setSelectedArtists(new Set())
   }
-
-  if (!cards.length) return null
 
   return (
     <div className="space-y-4">
-      {/* Active Filters */}
-      {(selectedFilters.artists.length > 0 || 
-        selectedFilters.sets.length > 0 || 
-        selectedFilters.rarities.length > 0) && (
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Active Filters:</span>
-          {selectedFilters.artists.map(artist => (
-            <button
-              key={`artist-${artist}`}
-              onClick={() => toggleFilter('artists', artist)}
-              className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
-            >
-              {artist}
-              <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          ))}
-          {selectedFilters.sets.map(set => (
-            <button
-              key={`set-${set}`}
-              onClick={() => toggleFilter('sets', set)}
-              className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
-            >
-              {set}
-              <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          ))}
-          {selectedFilters.rarities.map(rarity => (
-            <button
-              key={`rarity-${rarity}`}
-              onClick={() => toggleFilter('rarities', rarity)}
-              className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300"
-            >
-              {rarity}
-              <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          ))}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-white">Filters</h3>
+        {(selectedSets.size > 0 || selectedRarities.size > 0 || selectedArtists.size > 0) && (
           <button
             onClick={clearFilters}
-            className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+            className="text-sm text-gray-400 hover:text-white transition-colors"
           >
-            Clear All
+            Clear all
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Filter Options */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Artist Filter */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Sets */}
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Artists</h3>
-          <div className="max-h-40 overflow-y-auto space-y-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
-            {filterOptions.artists.map(artist => (
-              <label
-                key={artist}
-                className="flex items-center space-x-2 px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedFilters.artists.includes(artist)}
-                  onChange={() => toggleFilter('artists', artist)}
-                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{artist}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Set Filter */}
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Sets</h3>
-          <div className="max-h-40 overflow-y-auto space-y-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
-            {filterOptions.sets.map(set => (
+          <h4 className="text-sm font-medium text-gray-400">Sets</h4>
+          <div className="space-y-1 max-h-32 overflow-y-auto pr-2">
+            {Array.from(uniqueSets).map(set => (
               <label
                 key={set}
-                className="flex items-center space-x-2 px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
+                className="flex items-center space-x-2 cursor-pointer group"
               >
                 <input
                   type="checkbox"
-                  checked={selectedFilters.sets.includes(set)}
-                  onChange={() => toggleFilter('sets', set)}
-                  className="rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500"
+                  checked={selectedSets.has(set)}
+                  onChange={() => toggleSet(set)}
+                  className="rounded border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-900"
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{set}</span>
+                <span className="text-sm text-gray-400 group-hover:text-white transition-colors truncate">
+                  {set}
+                </span>
               </label>
             ))}
           </div>
         </div>
 
-        {/* Rarity Filter */}
+        {/* Rarities */}
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Rarities</h3>
-          <div className="max-h-40 overflow-y-auto space-y-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
-            {filterOptions.rarities.map(rarity => (
+          <h4 className="text-sm font-medium text-gray-400">Rarities</h4>
+          <div className="space-y-1">
+            {Array.from(uniqueRarities).map(rarity => (
               <label
                 key={rarity}
-                className="flex items-center space-x-2 px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
+                className="flex items-center space-x-2 cursor-pointer group"
               >
                 <input
                   type="checkbox"
-                  checked={selectedFilters.rarities.includes(rarity)}
-                  onChange={() => toggleFilter('rarities', rarity)}
-                  className="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500"
+                  checked={selectedRarities.has(rarity)}
+                  onChange={() => toggleRarity(rarity)}
+                  className="rounded border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-900"
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{rarity}</span>
+                <span className="text-sm text-gray-400 group-hover:text-white transition-colors">
+                  {rarity}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Artists */}
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium text-gray-400">Artists</h4>
+          <div className="space-y-1 max-h-32 overflow-y-auto pr-2">
+            {Array.from(uniqueArtists).map(artist => (
+              <label
+                key={artist}
+                className="flex items-center space-x-2 cursor-pointer group"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedArtists.has(artist)}
+                  onChange={() => toggleArtist(artist)}
+                  className="rounded border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-900"
+                />
+                <span className="text-sm text-gray-400 group-hover:text-white transition-colors truncate">
+                  {artist}
+                </span>
               </label>
             ))}
           </div>

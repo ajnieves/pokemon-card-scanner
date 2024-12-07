@@ -1,81 +1,89 @@
 import { NextResponse } from 'next/server'
-import { validateJpnSearchResponse, convertJpnCard } from '../../utils/pokemon-tcg'
+import { PokemonCard, convertJpnCard } from '../../utils/pokemon-tcg'
+
+const POKEMON_TCG_API = 'https://api.pokemontcg.io/v2/cards'
+const JPN_CARDS_API = 'https://www.jpn-cards.com/v2/card'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const query = searchParams.get('q')
   const language = searchParams.get('language') || 'all'
-  const searchType = searchParams.get('type') || 'name'
-  const pageSize = 250
+  const type = searchParams.get('type') || 'name'
 
   if (!query) {
-    return NextResponse.json({ error: 'Query parameter is required' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Query parameter is required' },
+      { status: 400 }
+    )
   }
 
-  const apiKey = process.env.POKEMONTCG_API_KEY
-  if (!apiKey) {
-    console.error('Pokemon TCG API key is not configured')
-    return NextResponse.json({ error: 'API configuration error' }, { status: 500 })
-  }
-
-  let results: any[] = []
+  let results: PokemonCard[] = []
 
   try {
-    // Search English cards if language is 'en' or 'all'
-    if (language === 'en' || language === 'all') {
-      const searchQuery = searchType === 'name' ? `name:"*${query}*"` :
-                         searchType === 'set' ? `set.name:"*${query}*"` :
-                         `artist:"*${query}*"`
-
-      const cardApiUrl = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(searchQuery)}&orderBy=set.releaseDate,number&pageSize=${pageSize}`
-      console.log('Searching EN cards:', cardApiUrl)
-
-      const cardResponse = await fetch(cardApiUrl, {
-        headers: {
-          'X-Api-Key': apiKey,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
+    // Search English cards
+    if (language === 'all' || language === 'en') {
+      console.log(`Searching EN cards: ${POKEMON_TCG_API}?q=${type}:"*${query}*"&orderBy=set.releaseDatenumber&pageSize=250`)
+      
+      const response = await fetch(
+        `${POKEMON_TCG_API}?q=${type}:"*${query}*"&orderBy=set.releaseDatenumber&pageSize=250`,
+        {
+          headers: {
+            'X-Api-Key': process.env.POKEMON_TCG_API_KEY || ''
+          }
         }
-      })
+      )
 
-      if (!cardResponse.ok) {
-        console.error('EN API Error:', cardResponse.status, cardResponse.statusText)
-        throw new Error(`Failed to fetch EN cards: ${cardResponse.status}`)
+      if (!response.ok) {
+        throw new Error(`Pokemon TCG API responded with ${response.status}`)
       }
 
-      const cardData = await cardResponse.json()
-      if (cardData.data) {
-        results = cardData.data.map((card: any) => {
-          // Convert image URLs to high-res format
-          if (card.images?.small) {
-            const baseUrl = card.images.small.replace('.png', '')
-            card.images.large = `${baseUrl}_hires.png`
-          }
-          return { ...card, language: 'EN' }
+      const data = await response.json()
+      if (data.data && Array.isArray(data.data)) {
+        results = data.data
+      }
+
+      // Log first result image URLs for debugging
+      if (results.length > 0 && results[0].images) {
+        console.log('First result image URLs:', {
+          small: results[0].images.small,
+          large: results[0].images.large
         })
       }
     }
 
-    // Search Japanese cards if language is 'jpn' or 'all'
-    if (language === 'jpn' || language === 'all') {
-      const encodedQuery = encodeURIComponent(query)
-      const jpnApiUrl = searchType === 'name' ? `https://www.jpn-cards.com/v2/card/name=${encodedQuery}` :
-                       searchType === 'set' ? `https://www.jpn-cards.com/v2/card/set_name=${encodedQuery}` :
-                       `https://www.jpn-cards.com/v2/card/illustrator=${encodedQuery}`
-
-      console.log('Searching JPN cards:', jpnApiUrl)
-
-      const jpnResponse = await fetch(jpnApiUrl)
-
-      if (!jpnResponse.ok) {
-        console.error('JPN API Error:', jpnResponse.status, jpnResponse.statusText)
-        throw new Error(`Failed to fetch JPN cards: ${jpnResponse.status}`)
-      }
-
+    // Search Japanese cards
+    if (language === 'all' || language === 'jpn') {
+      console.log(`Searching JPN cards: ${JPN_CARDS_API}/name=${query}`)
+      
       try {
+        const jpnResponse = await fetch(`${JPN_CARDS_API}/name=${query}`)
+        
+        if (!jpnResponse.ok) {
+          console.error(`JPN API responded with ${jpnResponse.status}`)
+          return
+        }
+
         const jpnData = await jpnResponse.json()
-        if (jpnData.data && Array.isArray(jpnData.data)) {
-          const convertedJpnCards = jpnData.data.map(convertJpnCard)
+        
+        if (jpnData && Array.isArray(jpnData.data)) {
+          const convertedJpnCards = jpnData.data.map((card: any) => ({
+            id: card.id,
+            name: card.name,
+            number: card.number,
+            images: {
+              small: card.images?.small,
+              large: card.images?.large
+            },
+            set: {
+              name: card.set?.name || 'Unknown Set',
+              printedTotal: card.set?.total || 0,
+              releaseDate: card.set?.releaseDate
+            },
+            rarity: card.rarity,
+            artist: card.artist,
+            language: 'JPN'
+          }))
+          
           results = [...results, ...convertedJpnCards]
         }
       } catch (error) {
@@ -83,26 +91,18 @@ export async function GET(request: Request) {
       }
     }
 
-    // Sort combined results by release date
+    // Sort results by release date (newest first)
     results.sort((a, b) => {
-      const dateA = new Date(a.set.releaseDate).getTime()
-      const dateB = new Date(b.set.releaseDate).getTime()
-      return dateB - dateA
+      const dateA = a.set.releaseDate ? new Date(a.set.releaseDate) : new Date(0)
+      const dateB = b.set.releaseDate ? new Date(b.set.releaseDate) : new Date(0)
+      return dateB.getTime() - dateA.getTime()
     })
 
-    // Log first result for debugging
-    if (results.length > 0) {
-      console.log('First result image URLs:', {
-        small: results[0].images?.small,
-        large: results[0].images?.large
-      })
-    }
-
     return NextResponse.json({ data: results })
-  } catch (error: any) {
-    console.error('API Error:', error)
+  } catch (error) {
+    console.error('Search error:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch data' },
+      { error: 'Failed to search cards' },
       { status: 500 }
     )
   }

@@ -33,7 +33,7 @@ export default function CardScanner() {
   const [language, setLanguage] = useState<Language>('all')
   const [searchType, setSearchType] = useState<SearchType>('name')
 
-  const searchCard = async () => {
+  const searchCard = useCallback(async () => {
     const query = searchInput.trim()
     if (!query) return
     
@@ -61,10 +61,19 @@ export default function CardScanner() {
         throw new Error('Invalid response format')
       }
 
-      setCards(data.data)
-      setFilteredCards(data.data)
+      const processedCards = data.data.map((card: PokemonCard) => {
+        if (card.images) {
+          if (card.images.large && !card.images.large.endsWith('_hires.png')) {
+            card.images.large = card.images.large.replace('.png', '_hires.png')
+          }
+        }
+        return card
+      })
 
-      if (data.data.length === 0) {
+      setCards(processedCards)
+      setFilteredCards(processedCards)
+
+      if (processedCards.length === 0) {
         const langText = language === 'all' ? '' : 
           language === 'en' ? ' in English cards' : ' in Japanese cards'
         const typeText = searchType === 'name' ? 'card name' :
@@ -77,37 +86,35 @@ export default function CardScanner() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchInput, language, searchType])
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && searchInput.trim()) {
+      e.preventDefault()
       searchCard()
     }
-  }
+  }, [searchInput, searchCard])
 
-  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchInput(e.target.value)
     if (error) setError('')
-  }
+  }, [error])
 
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleLanguageChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setLanguage(e.target.value as Language)
     if (error) setError('')
-    if (searchInput.trim()) {
-      searchCard()
-    }
-  }
+  }, [error])
 
-  const handleSearchTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleSearchTypeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setSearchType(e.target.value as SearchType)
     if (error) setError('')
-  }
+  }, [error])
 
   const handleFilterChange = useCallback((filtered: PokemonCard[]) => {
     setFilteredCards(filtered)
   }, [])
 
-  const addToCollection = (card: PokemonCard, e?: React.MouseEvent<Element, MouseEvent>) => {
+  const addToCollection = useCallback((card: PokemonCard, e?: React.MouseEvent<Element, MouseEvent>) => {
     if (e) {
       e.preventDefault()
       e.stopPropagation()
@@ -128,9 +135,9 @@ export default function CardScanner() {
     if (!showCollection) {
       setShowCollection(true)
     }
-  }
+  }, [showCollection])
 
-  const updateQuantity = (cardId: string, newQuantity: number) => {
+  const updateQuantity = useCallback((cardId: string, newQuantity: number) => {
     if (newQuantity < 1) return
     setCollectedCards(prev =>
       prev.map(card =>
@@ -139,13 +146,13 @@ export default function CardScanner() {
           : card
       )
     )
-  }
+  }, [])
 
-  const removeFromCollection = (cardId: string) => {
+  const removeFromCollection = useCallback((cardId: string) => {
     setCollectedCards(prev => prev.filter(card => card.id !== cardId))
-  }
+  }, [])
 
-  const exportToCSV = (cards: CollectedCard[]) => {
+  const exportToCSV = useCallback((cards: CollectedCard[]) => {
     const csvData = [
       ['Qty', 'Name', 'Number', 'Set', 'Rarity', 'Language'].join(','),
       ...cards.map(card => [
@@ -167,38 +174,40 @@ export default function CardScanner() {
     a.click()
     document.body.removeChild(a)
     window.URL.revokeObjectURL(url)
-  }
+  }, [])
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
+    <div className="flex min-h-screen flex-col lg:flex-row">
       {/* Main Content */}
-      <div className={`flex-1 overflow-y-auto transition-all duration-300 ${showCollection ? 'mr-80' : ''}`}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className={`flex-1 transition-all duration-300 ${showCollection ? 'lg:mr-80' : ''}`}>
+        <div className="container mx-auto px-4 py-6 space-y-6">
           {/* Search Controls */}
-          <SearchControls
-            loading={loading}
-            searchInput={searchInput}
-            language={language}
-            searchType={searchType}
-            onSearch={searchCard}
-            onSearchInputChange={handleSearchInputChange}
-            onLanguageChange={handleLanguageChange}
-            onSearchTypeChange={handleSearchTypeChange}
-            onKeyPress={handleKeyPress}
-          />
+          <div className="card p-6">
+            <SearchControls
+              loading={loading}
+              searchInput={searchInput}
+              language={language}
+              searchType={searchType}
+              onSearch={searchCard}
+              onSearchInputChange={handleSearchInputChange}
+              onLanguageChange={handleLanguageChange}
+              onSearchTypeChange={handleSearchTypeChange}
+              onKeyPress={handleKeyPress}
+            />
+          </div>
 
           {/* Error Message */}
           {error && (
-            <div className="p-4 bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-800 rounded-xl">
-              <p className="text-red-600 dark:text-red-400 text-center">{error}</p>
+            <div className="slide-up rounded-xl bg-red-500/10 border border-red-500/20 p-4">
+              <p className="text-center text-red-400">{error}</p>
             </div>
           )}
 
           {/* Loading State */}
           {loading && !error && (
-            <div className="flex justify-center items-center py-12">
+            <div className="fade-in flex justify-center items-center py-12">
               <LoadingSpinner />
-              <span className="ml-3 text-gray-600 dark:text-gray-400">
+              <span className="ml-3 text-gray-400">
                 Searching for "{searchInput.trim()}"...
               </span>
             </div>
@@ -206,7 +215,7 @@ export default function CardScanner() {
 
           {/* Filters */}
           {cards.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
+            <div className="card p-6">
               <Filters cards={cards} onFilterChange={handleFilterChange} />
             </div>
           )}
@@ -215,31 +224,36 @@ export default function CardScanner() {
           {filteredCards.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-xl font-semibold text-white">
                   Found {filteredCards.length} cards
                   {filteredCards.length !== cards.length && (
-                    <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                    <span className="text-sm text-gray-400 ml-2">
                       (filtered from {cards.length})
                     </span>
                   )}
                 </h2>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+
+              {/* Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredCards.map((card) => (
                   <div 
                     key={card.id}
                     onClick={() => setSelectedCard(card)}
-                    className="group bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer overflow-hidden touch-manipulation"
+                    className="card card-hover group cursor-pointer"
                   >
                     <div className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <h3 className="font-bold text-gray-900 dark:text-white truncate">{card.name}</h3>
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-2 min-w-0">
+                          <h3 className="font-bold text-white truncate">
+                            {card.name}
+                          </h3>
                           {card.language && (
-                            <span className={`text-xs px-2 py-0.5 rounded ${
+                            <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${
                               card.language === 'JPN' 
-                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                                : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                ? 'bg-red-500/20 text-red-300'
+                                : 'bg-blue-500/20 text-blue-300'
                             }`}>
                               {card.language}
                             </span>
@@ -247,18 +261,36 @@ export default function CardScanner() {
                         </div>
                         <button
                           onClick={(e) => addToCollection(card, e)}
-                          className="ml-2 shrink-0 px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors active:scale-95"
+                          className="btn btn-primary ml-2 !p-2"
                         >
-                          Add
+                          <svg 
+                            className="h-5 w-5" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor"
+                          >
+                            <path 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth="2" 
+                              d="M12 4v16m8-8H4" 
+                            />
+                          </svg>
+                          <span className="sr-only">Add to Collection</span>
                         </button>
                       </div>
+
+                      {/* Card Content */}
                       <div className="flex items-start space-x-4">
-                        {card.images?.small && (
-                          <ImageLoader
-                            src={card.images.small}
-                            alt={card.name}
-                          />
-                        )}
+                        <div className="relative group-hover:scale-105 transition-transform duration-300">
+                          {card.images?.small && (
+                            <ImageLoader
+                              src={card.images.small}
+                              alt={card.name}
+                              className="w-24 h-32 rounded-lg shadow-lg object-cover"
+                            />
+                          )}
+                        </div>
                         <CardDetails card={card} />
                       </div>
                     </div>
@@ -268,13 +300,13 @@ export default function CardScanner() {
             </div>
           )}
         </div>
-      </div>
+      </main>
 
       {/* Collection Sidebar */}
-      <div 
-        className={`fixed top-16 right-0 w-80 h-[calc(100vh-4rem)] transform transition-transform duration-300 ease-in-out ${
+      <aside 
+        className={`fixed inset-y-0 right-0 w-80 bg-slate-800/95 backdrop-blur-sm border-l border-slate-700/50 transform transition-transform duration-300 ease-in-out ${
           showCollection ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        } lg:translate-x-0 lg:relative lg:${showCollection ? 'w-80' : 'w-0'}`}
       >
         <Collection
           cards={collectedCards}
@@ -283,20 +315,26 @@ export default function CardScanner() {
           onExport={exportToCSV}
           onCardClick={setSelectedCard}
         />
-      </div>
+      </aside>
 
       {/* Toggle Collection Button */}
       <button
         onClick={() => setShowCollection(!showCollection)}
-        className="fixed bottom-4 right-4 z-50 p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+        className="fixed bottom-4 right-4 z-50 btn btn-primary rounded-full lg:hidden"
+        aria-label="Toggle Collection"
       >
         <svg 
-          className={`w-6 h-6 transition-transform duration-300 ${showCollection ? 'rotate-180' : ''}`} 
+          className={`w-6 h-6 transition-transform duration-300 ${showCollection ? 'rotate-45' : ''}`} 
           fill="none" 
           stroke="currentColor" 
           viewBox="0 0 24 24"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            strokeWidth="2" 
+            d={showCollection ? "M6 18L18 6M6 6l12 12" : "M19 9l-7 7-7-7"} 
+          />
         </svg>
       </button>
 
