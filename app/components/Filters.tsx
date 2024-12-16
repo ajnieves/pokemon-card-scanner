@@ -12,11 +12,13 @@ export default function Filters({ cards, onFilterChange }: FiltersProps) {
   const [selectedSets, setSelectedSets] = useState<Set<string>>(new Set())
   const [selectedRarities, setSelectedRarities] = useState<Set<string>>(new Set())
   const [selectedArtists, setSelectedArtists] = useState<Set<string>>(new Set())
+  const [selectedLanguages, setSelectedLanguages] = useState<Set<string>>(new Set())
 
   // Extract unique values and filter out undefined values
   const uniqueSets = new Set(cards.map(card => card.set.name))
   const uniqueRarities = new Set(cards.map(card => card.rarity).filter((rarity): rarity is string => rarity !== undefined))
   const uniqueArtists = new Set(cards.map(card => card.artist).filter((artist): artist is string => artist !== undefined))
+  const uniqueLanguages = new Set(cards.map(card => card.language || 'ENG').filter(Boolean))
 
   useEffect(() => {
     let filtered = [...cards]
@@ -33,8 +35,12 @@ export default function Filters({ cards, onFilterChange }: FiltersProps) {
       filtered = filtered.filter(card => card.artist && selectedArtists.has(card.artist))
     }
 
+    if (selectedLanguages.size > 0) {
+      filtered = filtered.filter(card => selectedLanguages.has(card.language || 'ENG'))
+    }
+
     onFilterChange(filtered)
-  }, [selectedSets, selectedRarities, selectedArtists, cards, onFilterChange])
+  }, [selectedSets, selectedRarities, selectedArtists, selectedLanguages, cards, onFilterChange])
 
   const toggleSet = (set: string) => {
     setSelectedSets(prev => {
@@ -72,17 +78,30 @@ export default function Filters({ cards, onFilterChange }: FiltersProps) {
     })
   }
 
+  const toggleLanguage = (language: string) => {
+    setSelectedLanguages(prev => {
+      const next = new Set(prev)
+      if (next.has(language)) {
+        next.delete(language)
+      } else {
+        next.add(language)
+      }
+      return next
+    })
+  }
+
   const clearFilters = () => {
     setSelectedSets(new Set())
     setSelectedRarities(new Set())
     setSelectedArtists(new Set())
+    setSelectedLanguages(new Set())
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white">Filters</h3>
-        {(selectedSets.size > 0 || selectedRarities.size > 0 || selectedArtists.size > 0) && (
+        {(selectedSets.size > 0 || selectedRarities.size > 0 || selectedArtists.size > 0 || selectedLanguages.size > 0) && (
           <button
             onClick={clearFilters}
             className="text-sm text-gray-400 hover:text-white transition-colors"
@@ -92,7 +111,30 @@ export default function Filters({ cards, onFilterChange }: FiltersProps) {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Languages */}
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium text-gray-400">Languages</h4>
+          <div className="space-y-1">
+            {Array.from(uniqueLanguages).map(language => (
+              <label
+                key={language}
+                className="flex items-center space-x-2 cursor-pointer group"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedLanguages.has(language)}
+                  onChange={() => toggleLanguage(language)}
+                  className="rounded border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-900"
+                />
+                <span className="text-sm text-gray-400 group-hover:text-white transition-colors">
+                  {language === 'JPN' ? 'Japanese' : 'English'}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
         {/* Sets */}
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-gray-400">Sets</h4>

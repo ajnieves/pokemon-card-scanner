@@ -1,8 +1,59 @@
 import { NextResponse } from 'next/server'
-import { PokemonCard, convertJpnCard } from '../../utils/pokemon-tcg'
+import { PokemonCard } from '../../utils/pokemon-tcg'
 
-const POKEMON_TCG_API = 'https://api.pokemontcg.io/v2/cards'
-const JPN_CARDS_API = 'https://www.jpn-cards.com/v2/card'
+interface JpnCard {
+  id: number
+  name: string
+  setData: {
+    name: string
+    printedTotal: string
+    total: number
+    year: string
+    image_url: string
+    set_url: string
+  }
+  types: string[]
+  hp: number
+  evolvesFrom: string | null
+  effect: Array<{
+    name: string
+    text: string
+    type: string
+  }>
+  attacks: Array<{
+    name: string
+    cost: string[]
+    convertedEnergyCost: number
+    damage: string
+    text: string
+  }>
+  weaknesses: Array<{
+    type: string
+    value: string
+  }> | null
+  resistances: Array<{
+    type: string
+    value: string
+  }> | null
+  retreatCost: string[]
+  convertedRetreatCost: number
+  supertype: string
+  subtypes: string[]
+  rarity: string
+  artist: string
+  imageUrl: string
+  cardUrl: string
+  sequenceNumber: number
+  printedNumber: string
+}
+
+interface JpnApiResponse {
+  data: JpnCard[]
+  page: number
+  pageSize: number
+  count: number
+  totalCount: number
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -11,21 +62,17 @@ export async function GET(request: Request) {
   const type = searchParams.get('type') || 'name'
 
   if (!query) {
-    return NextResponse.json(
-      { error: 'Query parameter is required' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Query parameter is required' }, { status: 400 })
   }
 
-  let results: PokemonCard[] = []
+  const cards: PokemonCard[] = []
 
-  try {
-    // Search English cards
-    if (language === 'all' || language === 'en') {
-      console.log(`Searching EN cards: ${POKEMON_TCG_API}?q=${type}:"*${query}*"&orderBy=set.releaseDatenumber&pageSize=250`)
-      
+  // Search English cards if language is 'all' or 'en'
+  if (language === 'all' || language === 'en') {
+    try {
+      console.log(`Searching EN cards: https://api.pokemontcg.io/v2/cards?q=${type}:"*${query}*"&orderBy=set.releaseDatenumber&pageSize=250`)
       const response = await fetch(
-        `${POKEMON_TCG_API}?q=${type}:"*${query}*"&orderBy=set.releaseDatenumber&pageSize=250`,
+        `https://api.pokemontcg.io/v2/cards?q=${type}:"*${query}*"&orderBy=set.releaseDatenumber&pageSize=250`,
         {
           headers: {
             'X-Api-Key': process.env.POKEMON_TCG_API_KEY || ''
@@ -38,72 +85,113 @@ export async function GET(request: Request) {
       }
 
       const data = await response.json()
-      if (data.data && Array.isArray(data.data)) {
-        results = data.data
-      }
-
-      // Log first result image URLs for debugging
-      if (results.length > 0 && results[0].images) {
-        console.log('First result image URLs:', {
-          small: results[0].images.small,
-          large: results[0].images.large
-        })
-      }
+      cards.push(...data.data)
+    } catch (error) {
+      console.error('Error fetching from Pokemon TCG API:', error)
     }
-
-    // Search Japanese cards
-    if (language === 'all' || language === 'jpn') {
-      console.log(`Searching JPN cards: ${JPN_CARDS_API}/name=${query}`)
-      
-      try {
-        const jpnResponse = await fetch(`${JPN_CARDS_API}/name=${query}`)
-        
-        if (!jpnResponse.ok) {
-          console.error(`JPN API responded with ${jpnResponse.status}`)
-          return
-        }
-
-        const jpnData = await jpnResponse.json()
-        
-        if (jpnData && Array.isArray(jpnData.data)) {
-          const convertedJpnCards = jpnData.data.map((card: any) => ({
-            id: card.id,
-            name: card.name,
-            number: card.number,
-            images: {
-              small: card.images?.small,
-              large: card.images?.large
-            },
-            set: {
-              name: card.set?.name || 'Unknown Set',
-              printedTotal: card.set?.total || 0,
-              releaseDate: card.set?.releaseDate
-            },
-            rarity: card.rarity,
-            artist: card.artist,
-            language: 'JPN'
-          }))
-          
-          results = [...results, ...convertedJpnCards]
-        }
-      } catch (error) {
-        console.error('JPN API Parse Error:', error)
-      }
-    }
-
-    // Sort results by release date (newest first)
-    results.sort((a, b) => {
-      const dateA = a.set.releaseDate ? new Date(a.set.releaseDate) : new Date(0)
-      const dateB = b.set.releaseDate ? new Date(b.set.releaseDate) : new Date(0)
-      return dateB.getTime() - dateA.getTime()
-    })
-
-    return NextResponse.json({ data: results })
-  } catch (error) {
-    console.error('Search error:', error)
-    return NextResponse.json(
-      { error: 'Failed to search cards' },
-      { status: 500 }
-    )
   }
+
+  // Search Japanese cards if language is 'all' or 'jpn'
+  if (language === 'all' || language === 'jpn') {
+    try {
+      // Use the correct endpoint format from the documentation
+      const jpnApiUrl = `https://www.jpn-cards.com/v2/card/name=${encodeURIComponent(query)}`
+      console.log(`Searching JPN cards: ${jpnApiUrl}`)
+      
+      const response = await fetch(jpnApiUrl, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+
+      console.log('JPN API response status:', response.status)
+      console.log('JPN API response headers:', Object.fromEntries(response.headers.entries()))
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('JPN API error response:', errorText)
+        throw new Error(`JPN Cards API responded with ${response.status}: ${errorText}`)
+      }
+
+      const data: JpnApiResponse = await response.json()
+      console.log('JPN API response:', JSON.stringify(data, null, 2))
+
+      // Convert Japanese cards to match Pokemon TCG API format
+      if (data.data && Array.isArray(data.data)) {
+        const jpnCards = data.data.map(card => ({
+          id: `jpn-${card.id}`,
+          name: card.name,
+          supertype: card.supertype,
+          subtypes: card.subtypes,
+          hp: card.hp?.toString(),
+          types: card.types,
+          evolvesFrom: card.evolvesFrom || undefined,
+          attacks: card.attacks,
+          weaknesses: card.weaknesses || undefined,
+          resistances: card.resistances || undefined,
+          retreatCost: card.retreatCost,
+          convertedRetreatCost: card.convertedRetreatCost,
+          set: {
+            id: `jpn-set-${card.id}`,
+            name: card.setData.name,
+            series: 'Japanese Series',
+            printedTotal: parseInt(card.setData.printedTotal),
+            total: card.setData.total,
+            legalities: {
+              unlimited: 'Legal',
+              standard: 'Legal',
+              expanded: 'Legal'
+            },
+            ptcgoCode: '',
+            releaseDate: card.setData.year || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            images: {
+              symbol: card.setData.image_url,
+              logo: card.setData.image_url
+            }
+          },
+          number: card.printedNumber,
+          artist: card.artist,
+          rarity: card.rarity,
+          flavorText: '',
+          images: {
+            small: card.imageUrl,
+            large: card.imageUrl
+          },
+          legalities: {
+            unlimited: 'Legal',
+            standard: 'Legal',
+            expanded: 'Legal'
+          },
+          language: 'JPN'
+        } as PokemonCard))
+        cards.push(...jpnCards)
+      }
+    } catch (error) {
+      console.error('Error fetching from JPN Cards API:', error)
+      if (error instanceof Error) {
+        console.error('Error details:', error.message)
+      }
+    }
+  }
+
+  // Sort cards by release date (newest first)
+  cards.sort((a, b) => {
+    const dateA = new Date(a.set.releaseDate)
+    const dateB = new Date(b.set.releaseDate)
+    return dateB.getTime() - dateA.getTime()
+  })
+
+  // Log final cards array for debugging
+  console.log(`Found ${cards.length} total cards`)
+  if (cards.length > 0) {
+    console.log('First card in results:', {
+      name: cards[0].name,
+      set: cards[0].set.name,
+      images: cards[0].images,
+      language: cards[0].language
+    })
+  }
+
+  return NextResponse.json({ data: cards })
 }

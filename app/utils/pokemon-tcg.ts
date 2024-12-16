@@ -137,11 +137,35 @@ export function validateSearchResponse(data: any): data is { data: PokemonCard[]
   )
 }
 
-export function convertJpnCard(card: any): PokemonCard {
+interface JpnCard {
+  id: string
+  name: string
+  cardNumber?: string
+  setId?: string
+  setName?: string
+  rarity?: string
+  image?: string
+  imageUrl?: string
+  images?: {
+    small?: string
+    large?: string
+  }
+  releaseDate?: string
+  [key: string]: any
+}
+
+export function convertJpnCard(card: JpnCard): PokemonCard {
+  // Log the incoming Japanese card data
+  console.log('Converting JPN card:', card)
+
+  // Extract image URL from various possible sources
+  const imageUrl = card.image || card.imageUrl || card.images?.small || ''
+  console.log('JPN card image URL:', imageUrl)
+
   return {
-    id: `jpn-${card.id}`,
+    id: `jpn-${card.id || Math.random().toString(36).substring(7)}`,
     name: card.name,
-    supertype: card.supertype || 'Pokémon',
+    supertype: 'Pokémon',
     number: card.cardNumber || '0',
     rarity: card.rarity || 'Unknown',
     set: {
@@ -163,8 +187,8 @@ export function convertJpnCard(card: any): PokemonCard {
       }
     },
     images: {
-      small: card.image || '',
-      large: card.image || ''
+      small: imageUrl,
+      large: imageUrl.replace(/\.(jpg|png)$/, '_large.$1')
     },
     legalities: {
       unlimited: 'Legal',
